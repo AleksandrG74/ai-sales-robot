@@ -142,14 +142,16 @@ def detect_stage(messages: list[dict[str, Any]]) -> tuple[Optional[str], Optiona
     """Определяет текущий и предыдущий этап диалога по сообщениям.
 
     Возвращает (current_stage, prev_stage, per_group_found_tokens).
-    Текущий этап — группа с максимальным order, где найдены токены.
-    Предыдущий — вторая по order группа с найденными токенами.
+
+    Логика:
+      1. Для каждой группы считаем, какие её токены встречаются в диалоге.
+      2. Текущий этап — группа с МАКСИМАЛЬНЫМ order, в которой есть попадания.
+      3. Предыдущий — вторая по order группа с попаданиями.
     """
     groups = load_token_groups()
     if not groups:
         return None, None, {}
 
-    # Собираем все тексты (и клиента, и всех — нам нужна общая картина)
     all_texts: list[str] = []
     for m in messages:
         txt = m.get("message") or ""
@@ -177,9 +179,6 @@ def detect_stage(messages: list[dict[str, Any]]) -> tuple[Optional[str], Optiona
     return current, prev, per_group_found
 
 
-# ============================================================
-# Стратегии
-# ============================================================
 def _get_or_create_strategy(
     session,
     token_group: str,

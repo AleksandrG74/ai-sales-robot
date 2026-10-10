@@ -6,9 +6,11 @@
 статистику, мосты, версии стратегий, пишет processed_dialogues.
 
 Фазы:
-  - bootstrap: обучаемся на завершённых успешных тредах.
+  - bootstrap: обучение на завершённых успешных тредах.
                score_dialogue = ступенчатая шкала от cosine(expected_text, actual)
+               expected_text = все сообщения менеджера, склеенные
   - online (позже): score_dialogue = этап клиента после нашего ответа
+                    expected_text = None
   - hybrid (позже): комбинированный
 """
 from __future__ import annotations
@@ -16,11 +18,8 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import re
 import time
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any, Optional
 
 from core.config import settings
@@ -65,7 +64,7 @@ def get_phase() -> str:
 
 
 # ============================================================
-# Определение клиента / менеджера
+# Авторы
 # ============================================================
 def _message_author_key(m: dict[str, Any]) -> str:
     """Стабильный идентификатор автора сообщения."""
@@ -87,36 +86,24 @@ def detect_client_author(messages: list[dict[str, Any]]) -> Optional[str]:
 def get_expected_text(
     messages: list[dict[str, Any]],
     client_key: Optional[str],
-) -> str:
-    """Последнее сообщение менеджера (не клиента) перед target-словом.
+) -> Optional[str]:
+    """Bootstrap: все сообщения менеджера (не клиента), склеенные через пробел.
 
-    Если менеджер не найден — пустая строка.
+    Порядок — в хронологическом порядке сообщений.
+    Если менеджер не найден — None.
     """
-    # Найдём индекс target-сообщения
-    target_idx = -1
-    for i, m in enumerate(messages):
+    parts: list[str] = []
+    for m in messages:
         if m.get("is_target"):
-            target_idx = i
-            break
-
-    # Идём назад от target_idx, ищем сообщение не от клиента
-    if target_idx > 0:
-        for i in range(target_idx - 1, -1, -1):
-            m = messages[i]
-            if client_key is not None and _message_author_key(m) == client_key:
-                continue
-            txt = (m.get("message") or "").strip()
-            if txt:
-                return txt
-
-    # Если target не найден — просто последнее сообщение не от клиента
-    for m in reversed(messages):
+            continue
         if client_key is not None and _message_author_key(m) == client_key:
             continue
         txt = (m.get("message") or "").strip()
         if txt:
-            return txt
-    return ""
+            parts.append(txt)
+    if not parts:
+        return None
+    return " ".join(parts)
 
 
 def get_target_word(messages: list[dict[str, Any]]) -> str:
@@ -128,15 +115,18 @@ def get_target_word(messages: list[dict[str, Any]]) -> str:
 
 
 # ============================================================
-# Определение роли клиента
+# Роль клиента
 # ============================================================
 _CURIOSITY_WORDS = ("как", "почему", "расскаж", "а что", "зачем", "интересно", "подробнее", "какой")
 _OBJECTION_WORDS = ("дорого", "не верю", "сомнева", "не подходит", "нет", "вряд ли", "не увер")
 _QUESTION_MARK = "?"
 
 
-def detect_role_heuristic(messages: list[dict[str, Any]], client_key: Optional[str]) -> tuple[str, float]:
-    """Эвристика определения роли. Возвращает (role, confidence 0..1)."""
+def detect_role_heuristic(
+    messages: list[dict[str, Any]],
+    client_key: Optional[str],
+) -> tuple[str, float]:
+    """Эвристика роли. Возвращает (role, confidence 0..1)."""
     if client_key is None:
         return "buyer", 0.3
 
@@ -162,8 +152,11 @@ def detect_role_heuristic(messages: list[dict[str, Any]], client_key: Optional[s
     return "buyer", 0.6
 
 
-def detect_role_llm(messages: list[dict[str, Any]], client_key: Optional[str]) -> Optional[str]:
-    """LLM-fallback для определения роли. Возвращает role или None."""
+def detect_role_llm(
+    messages: list[dict[str, Any]],
+    client_key: Optional[str],
+) -> Optional[str]:
+    """LLM-fallback для роли. Возвращает role или None."""
     if client_key is None:
         return None
     client_text = " ".join(
@@ -196,24 +189,31 @@ def detect_role_llm(messages: list[dict[str, Any]], client_key: Optional[str]) -
     return None
 
 
-def detect_role(messages: list[dict[str, Any]], client_key: Optional[str]) -> str:
+def detect_role(
+    messages: list[dict[str, Any]],
+    client_key: Optional[str],
+) -> tuple[str, str]:
+    """Возвращает (role, source). source = 'heuristic' | 'llm'."""
     role, conf = detect_role_heuristic(messages, client_key)
     if conf >= 0.7:
-        return role
+        return role, "heuristic"
     llm_role = detect_role_llm(messages, client_key)
     if llm_role:
-        return llm_role
-    return role
+        return llm_role, "llm"
+    return role, "heuristic"
 
 
 # ============================================================
-# Определение агрессии
+# Агрессия
 # ============================================================
 _NEGATIVE_WORDS = ("нет", "не ", "никогда", "ужасн", "отврат", "плохо", "обман", "развод")
 _STRONG_WORDS = ("!", "должен", "обязан", "требую", "немедленно")
 
 
-def detect_aggression_heuristic(messages: list[dict[str, Any]], client_key: Optional[str]) -> tuple[float, str]:
+def detect_aggression_heuristic(
+    messages: list[dict[str, Any]],
+    client_key: Optional[str],
+) -> tuple[float, str]:
     """Возвращает (score 0..1, уровень low|medium|high)."""
     if client_key is None:
         return 0.3, "low"
@@ -229,25 +229,21 @@ def detect_aggression_heuristic(messages: list[dict[str, Any]], client_key: Opti
     low = client_text.lower()
     score = 0.3
 
-    # CAPS — если больше 40% букв заглавные
     letters = [c for c in client_text if c.isalpha()]
     if letters:
         caps_ratio = sum(1 for c in letters if c.isupper()) / len(letters)
         if caps_ratio > 0.4:
             score += 0.3
 
-    # Восклицательные знаки
     excl = client_text.count("!")
     if excl >= 2:
         score += 0.2
     elif excl == 1:
         score += 0.1
 
-    # Негативные слова
     if any(w in low for w in _NEGATIVE_WORDS):
         score += 0.2
 
-    # Сильные слова
     if any(w in low for w in _STRONG_WORDS):
         score += 0.2
 
@@ -255,14 +251,17 @@ def detect_aggression_heuristic(messages: list[dict[str, Any]], client_key: Opti
 
     if score < 0.3:
         level = "low"
-    elif score < 0.7:
-        level = "medium"
-    else:
+    elif score > 0.7:
         level = "high"
+    else:
+        level = "medium"
     return score, level
 
 
-def detect_aggression_llm(messages: list[dict[str, Any]], client_key: Optional[str]) -> Optional[str]:
+def detect_aggression_llm(
+    messages: list[dict[str, Any]],
+    client_key: Optional[str],
+) -> Optional[str]:
     """LLM-fallback. Возвращает low|medium|high или None."""
     if client_key is None:
         return None
@@ -296,14 +295,23 @@ def detect_aggression_llm(messages: list[dict[str, Any]], client_key: Optional[s
     return None
 
 
-def detect_aggression(messages: list[dict[str, Any]], client_key: Optional[str]) -> str:
+def detect_aggression(
+    messages: list[dict[str, Any]],
+    client_key: Optional[str],
+) -> tuple[str, str]:
+    """Возвращает (level, source). source = 'heuristic' | 'llm'.
+
+    Пороги строгие:
+      score < 0.3 -> low
+      score > 0.7 -> high
+      0.3 <= score <= 0.7 -> LLM-fallback (source='llm' если LLM ответил)
+    """
     score, level = detect_aggression_heuristic(messages, client_key)
-    # Если score неоднозначный — уточняем через LLM
     if 0.3 <= score <= 0.7:
         llm_level = detect_aggression_llm(messages, client_key)
         if llm_level:
-            return llm_level
-    return level
+            return llm_level, "llm"
+    return level, "heuristic"
 
 
 # ============================================================
@@ -343,7 +351,11 @@ def compute_score_dialogue_online(stage_after: Optional[str]) -> Optional[float]
     return None
 
 
-def compute_score_response(actual: str, last_client_message: str, finish_reason: Optional[str]) -> float:
+def compute_score_response(
+    actual: str,
+    last_client_message: str,
+    finish_reason: Optional[str],
+) -> float:
     """Технический score ответа LLM. 0 / 0.5 / 1.0."""
     actual_low = (actual or "").lower()
     checks = [
@@ -368,17 +380,54 @@ def combine_score(score_dialogue: Optional[float], score_response: float) -> flo
 
 
 # ============================================================
+# Helpers
+# ============================================================
+def _messages_without_target(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Возвращает список сообщений без target-сообщений."""
+    return [m for m in messages if not m.get("is_target")]
+
+
+def _last_client_message_before_target(
+    messages: list[dict[str, Any]],
+    client_key: Optional[str],
+) -> str:
+    """Последнее НЕ-target сообщение клиента (то, на что мы отвечаем)."""
+    for m in reversed(messages):
+        if m.get("is_target"):
+            continue
+        if client_key is not None and _message_author_key(m) != client_key:
+            continue
+        txt = (m.get("message") or "").strip()
+        if txt:
+            return txt
+    return ""
+
+
+# ============================================================
 # Главная функция
 # ============================================================
+def _messages_after_target(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Возвращает сообщения ПОСЛЕ target-сообщения.
+
+    В bootstrap после target обычно ничего нет — вернётся пустой список.
+    В online здесь будет реальная реакция клиента на наш ответ.
+    """
+    target_idx = -1
+    for i, m in enumerate(messages):
+        if m.get("is_target"):
+            target_idx = i
+            break
+    if target_idx == -1:
+        return []
+    return messages[target_idx + 1:]
+
+
 async def process_dialogue(
     dialogue_json: dict[str, Any],
     *,
     run_llm: bool = True,
 ) -> dict[str, Any]:
-    """Обрабатывает один тред.
-
-    Возвращает result_json (тот же, что пишется в processed_dialogues).
-    """
+    """Обрабатывает один тред. Возвращает result_json."""
     t_start = time.perf_counter()
     phase = get_phase()
 
@@ -395,33 +444,27 @@ async def process_dialogue(
         log.warning("process_dialogue: не нашли target-слово в %s", dialogue_id)
 
     # 2. Роль, агрессия
-    role = detect_role(messages, client_key)
-    aggression = detect_aggression(messages, client_key)
+    role, role_source = detect_role(messages, client_key)
+    aggression, aggression_source = detect_aggression(messages, client_key)
 
-    # 3. Этап
-    stage_before, prev_stage, per_group = detect_stage(messages)
+    # 3. Этапы. stage_before — без target, stage_after — с target.
+    messages_before = _messages_without_target(messages)
+    stage_before, prev_stage, per_group = detect_stage(messages_before)
+    messages_after = _messages_after_target(messages)
+    stage_after = detect_stage(messages_after)[0] if messages_after else None
+
     target_word = get_target_word(messages)
-    expected_text = get_expected_text(messages, client_key)
+    expected_text = None
+    if phase != "online":
+        expected_text = get_expected_text(messages, client_key)
 
-    # 4. last_client_message = последнее сообщение клиента, НЕ считая target
-    last_client_msg = ""
-    for m in reversed(messages):
-        if client_key is not None and _message_author_key(m) != client_key:
-            continue
-        if m.get("is_target"):
-            continue
-        txt = (m.get("message") or "").strip()
-        if txt:
-            last_client_msg = txt
-            break
-    if not last_client_msg:
-        # если единственное сообщение клиента — это target, значит просто пусто
-        last_client_msg = ""
+    # 4. last_client_message
+    last_client_msg = _last_client_message_before_target(messages, client_key)
 
-    # 5. Промпт
+    # 5. Промпт (использует stage_before — без target)
     try:
         bp = build_prompt(
-            messages,
+            messages_before,
             role=role,
             aggression_level=aggression,
             token_group=stage_before,
@@ -443,14 +486,14 @@ async def process_dialogue(
 
     prompt_text = bp.prompt_text
     version_id = bp.version_id
-    token_group = bp.context.get("token_group") if bp.context else stage_before
+    token_group = (bp.context or {}).get("token_group") or stage_before
 
     # 6. LLM
     actual = ""
     tokens_in = 0
     tokens_out = 0
     finish_reason: Optional[str] = None
-    duration_ms = 0.0
+    llm_total_ms = 0.0
 
     if run_llm:
         try:
@@ -467,18 +510,23 @@ async def process_dialogue(
             tokens_in = resp.tokens_in
             tokens_out = resp.tokens_out
             finish_reason = resp.finish_reason
-            duration_ms = resp.latency_ms
+            llm_total_ms = resp.latency_ms
         except Exception as exc:
             log.exception("LLM call failed: %s", exc)
             actual = ""
             finish_reason = "error"
 
-    # 7. Метрики
+    # 7. Метрики (embeddings)
     emb = get_embedder()
     cosine_value: Optional[float] = None
     similarity_to_target: Optional[float] = None
+    embedding_load_ms = 0.0
 
     try:
+        t0 = time.perf_counter()
+        _ = emb.dim  # триггерит загрузку модели, если ещё не загружена
+        embedding_load_ms = (time.perf_counter() - t0) * 1000.0
+
         if expected_text and actual:
             cosine_value = emb.cosine(emb.encode(expected_text), emb.encode(actual))
         if target_word and actual:
@@ -486,10 +534,10 @@ async def process_dialogue(
     except Exception as exc:
         log.exception("Embedding failed: %s", exc)
 
-    # 8. score_dialogue по фазе
+    # 8. score_dialogue
     if phase == "online":
-        score_dialogue = compute_score_dialogue_online(stage_before)  # TODO: stage_after в online
-    else:  # bootstrap или hybrid — используем bootstrap
+        score_dialogue = compute_score_dialogue_online(stage_after)
+    else:
         score_dialogue = compute_score_dialogue_bootstrap(cosine_value)
 
     # 9. score_response
@@ -518,7 +566,7 @@ async def process_dialogue(
     except Exception as exc:
         log.exception("bridges update failed: %s", exc)
 
-    # 13. top_tokens (из word_stats, топ 10)
+    # 13. top_tokens
     try:
         top_tokens_raw = statistics.get_top_tokens(10, by="success_rate")
         top_tokens = [r["word"] for r in top_tokens_raw]
@@ -538,10 +586,12 @@ async def process_dialogue(
         "score_response": round(score_response, 4),
         "phase": phase,
         "role": role,
+        "role_source": role_source,
         "aggression": aggression,
+        "aggression_source": aggression_source,
         "token_group": token_group,
         "stage_before": stage_before,
-        "stage_after": stage_before,  # bootstrap: неизвестен, оставим тот же
+        "stage_after": stage_after,
         "top_tokens": top_tokens,
         "cosine": round(cosine_value, 4) if cosine_value is not None else None,
         "similarity_to_target": round(similarity_to_target, 4) if similarity_to_target is not None else None,
@@ -550,10 +600,12 @@ async def process_dialogue(
         "tokens_out": tokens_out,
         "finish_reason": finish_reason,
         "duration_ms": round(duration_ms_total, 1),
+        "llm_total_ms": round(llm_total_ms, 1),
+        "embedding_load_ms": round(embedding_load_ms, 1),
         "version_id": version_id,
     }
 
-    # 15. Записать в processed_dialogues
+    # 15. processed_dialogues
     try:
         with get_session() as s:
             existing = s.query(ProcessedDialogue).filter_by(dialogue_id=dialogue_id).one_or_none()
@@ -573,7 +625,7 @@ async def process_dialogue(
     except Exception as exc:
         log.exception("Failed to save processed_dialogue: %s", exc)
 
-    # 16. Триггеры snapshot / auto-version
+    # 16. Триггеры
     try:
         statistics.maybe_snapshot()
     except Exception as exc:
@@ -597,20 +649,23 @@ async def process_dialogue(
 # ============================================================
 # Обработка файла
 # ============================================================
-async def process_file(path: Path, *, run_llm: bool = True) -> dict[str, Any]:
+async def process_file(path, *, run_llm: bool = True) -> dict[str, Any]:
     """Читает JSON-файл треда, обрабатывает, возвращает result_json."""
+    from pathlib import Path as _Path
+
+    p = _Path(path)
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        with open(p, "r", encoding="utf-8") as f:
             data = json.load(f)
     except Exception as exc:
-        log.exception("Failed to read %s: %s", path, exc)
-        return {"error": str(exc), "file": str(path)}
+        log.exception("Failed to read %s: %s", p, exc)
+        return {"error": str(exc), "file": str(p)}
 
     try:
         return await process_dialogue(data, run_llm=run_llm)
     except Exception as exc:
-        log.exception("process_file %s failed: %s", path, exc)
-        return {"error": str(exc), "file": str(path)}
+        log.exception("process_file %s failed: %s", p, exc)
+        return {"error": str(exc), "file": str(p)}
 
 
 # ============================================================
@@ -620,14 +675,14 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 
     sample = {
-        "seed_id": 99999,
-        "sender": "test_channel",
+        "seed_id": 88888,
+        "sender": "test_channel_v2",
         "target_author_username": "client1",
         "messages": [
             {"author_id": 1, "author_username": "client1", "message": "Привет", "is_target": False},
             {"author_id": 2, "author_username": "manager", "message": "Здравствуйте! Готов помочь.", "is_target": False},
             {"author_id": 1, "author_username": "client1", "message": "Расскажите про товар, интересно", "is_target": False},
-            {"author_id": 2, "author_username": "manager", "message": "Наш товар — ...", "is_target": False},
+            {"author_id": 2, "author_username": "manager", "message": "Наш товар — отличное решение.", "is_target": False},
             {"author_id": 1, "author_username": "client1", "message": "Сколько стоит?", "is_target": False},
             {"author_id": 2, "author_username": "manager", "message": "Цена — 1000 руб.", "is_target": False},
             {"author_id": 1, "author_username": "client1", "message": "ок", "is_target": True},
