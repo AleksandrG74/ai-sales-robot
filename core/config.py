@@ -59,6 +59,12 @@ class Settings(BaseSettings):
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
     tz: str = Field(default="Europe/Moscow", alias="TZ")
 
+    # === Фаза (bootstrap / online / hybrid) ===
+    phase: Optional[str] = Field(default=None, alias="PHASE")
+    phase_file: Path = Field(
+        default=BASE_DIR / "configs" / "phase.json", alias="PHASE_FILE"
+    )
+
     # === Пути (внутри контейнера) ===
     robot_db_path: Path = Field(
         default=BASE_DIR / "data" / "robot.db", alias="ROBOT_DB_PATH"
@@ -111,6 +117,7 @@ class Settings(BaseSettings):
         "deepseek_api_key",
         "dashboard_user",
         "dashboard_pass",
+        "phase",
         mode="before",
     )
     @classmethod

@@ -1,0 +1,8 @@
+{
+  "name": "Demo Product",
+  "description": "Описание товара для демонстрации",
+  "price": 0,
+  "currency": "RUB",
+  "url": "",
+  "features": []
+}

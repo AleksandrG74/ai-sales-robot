@@ -176,10 +176,32 @@ class BridgeHistory(Base):
     from_group: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     to_group: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     dialogue_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True, index=True)
-    success: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    success: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
     weight_before: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     weight_after: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
+
+
+# ============================================================
+# 6.5. bridge_weights
+# ============================================================
+class BridgeWeight(Base):
+    __tablename__ = "bridge_weights"
+    __table_args__ = (
+        UniqueConstraint("bridge_token", "from_group", "to_group", name="uq_bridge_key"),
+        Index("ix_bridge_weight_weight", "weight"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    bridge_token: Mapped[str] = mapped_column(String(64), nullable=False)
+    from_group: Mapped[str] = mapped_column(String(64), nullable=False)
+    to_group: Mapped[str] = mapped_column(String(64), nullable=False)
+    weight: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    success_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    total_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=_utcnow, onupdate=_utcnow, nullable=False
+    )
 
 
 # ============================================================
