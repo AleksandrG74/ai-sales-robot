@@ -1,0 +1,27 @@
+FROM python:3.11-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    HF_HOME=/app/data/hf_cache \
+    TRANSFORMERS_CACHE=/app/data/hf_cache \
+    SENTENCE_TRANSFORMERS_HOME=/app/data/hf_cache
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential \
+        curl \
+        procps \
+        cron \
+        tzdata \
+        ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt
+
+RUN mkdir -p /app/logs /app/data /app/data/strategies /app/data/raw_threads
+
+CMD ["bash"]

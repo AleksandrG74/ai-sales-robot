@@ -1,0 +1,763 @@
+{
+  "version": 3,
+  "updated_at": "2026-09-19",
+  "total": 126,
+  "sources": [
+    {
+      "name": "K_3_D",
+      "type": "telegram",
+      "enabled": true,
+      "group": "tech"
+    },
+    {
+      "name": "webprogrammists",
+      "type": "telegram",
+      "enabled": true,
+      "group": "tech"
+    },
+    {
+      "name": "pro_osdev",
+      "type": "telegram",
+      "enabled": true,
+      "group": "tech"
+    },
+    {
+      "name": "YandexCloud",
+      "type": "telegram",
+      "enabled": true,
+      "group": "tech"
+    },
+    {
+      "name": "Zigbee",
+      "type": "telegram",
+      "enabled": true,
+      "group": "tech"
+    },
+    {
+      "name": "CompilerDev",
+      "type": "telegram",
+      "enabled": true,
+      "group": "tech"
+    },
+    {
+      "name": "itdogchat",
+      "type": "telegram",
+      "enabled": true,
+      "group": "tech"
+    },
+    {
+      "name": "lessondeliverychat",
+      "type": "telegram",
+      "enabled": true,
+      "group": "education"
+    },
+    {
+      "name": "onlineShkoly",
+      "type": "telegram",
+      "enabled": true,
+      "group": "education"
+    },
+    {
+      "name": "botalkaaa",
+      "type": "telegram",
+      "enabled": true,
+      "group": "education"
+    },
+    {
+      "name": "repetitor_repetitori",
+      "type": "telegram",
+      "enabled": true,
+      "group": "education"
+    },
+    {
+      "name": "studentsfortutors",
+      "type": "telegram",
+      "enabled": true,
+      "group": "education"
+    },
+    {
+      "name": "PsiologWeHelp",
+      "type": "telegram",
+      "enabled": true,
+      "group": "psychology"
+    },
+    {
+      "name": "mirlru",
+      "type": "telegram",
+      "enabled": true,
+      "group": "psychology"
+    },
+    {
+      "name": "proSVETlenieLav",
+      "type": "telegram",
+      "enabled": true,
+      "group": "psychology"
+    },
+    {
+      "name": "SHKOLAAVTONOMII",
+      "type": "telegram",
+      "enabled": true,
+      "group": "psychology"
+    },
+    {
+      "name": "wbchatpostavshikov",
+      "type": "telegram",
+      "enabled": true,
+      "group": "marketplace"
+    },
+    {
+      "name": "wildberries_markets",
+      "type": "telegram",
+      "enabled": true,
+      "group": "marketplace"
+    },
+    {
+      "name": "avito_chatic",
+      "type": "telegram",
+      "enabled": true,
+      "group": "marketplace"
+    },
+    {
+      "name": "wb_help",
+      "type": "telegram",
+      "enabled": true,
+      "group": "marketplace"
+    },
+    {
+      "name": "wb_ozonchat",
+      "type": "telegram",
+      "enabled": true,
+      "group": "marketplace"
+    },
+    {
+      "name": "mari_vakansiii",
+      "type": "telegram",
+      "enabled": true,
+      "group": "marketplace"
+    },
+    {
+      "name": "lutacash",
+      "type": "telegram",
+      "enabled": true,
+      "group": "marketplace"
+    },
+    {
+      "name": "marketplacechats_help",
+      "type": "telegram",
+      "enabled": true,
+      "group": "marketplace"
+    },
+    {
+      "name": "avito_chats",
+      "type": "telegram",
+      "enabled": true,
+      "group": "marketplace"
+    },
+    {
+      "name": "obyavaVolnovaha",
+      "type": "telegram",
+      "enabled": true,
+      "group": "marketplace"
+    },
+    {
+      "name": "podrabotkarabotaspb",
+      "type": "telegram",
+      "enabled": true,
+      "group": "marketplace"
+    },
+    {
+      "name": "spbpvz",
+      "type": "telegram",
+      "enabled": true,
+      "group": "marketplace"
+    },
+    {
+      "name": "marketWildberriess",
+      "type": "telegram",
+      "enabled": true,
+      "group": "marketplace"
+    },
+    {
+      "name": "tovarka_rossiya",
+      "type": "telegram",
+      "enabled": true,
+      "group": "marketplace"
+    },
+    {
+      "name": "marketplace_chattt",
+      "type": "telegram",
+      "enabled": true,
+      "group": "marketplace"
+    },
+    {
+      "name": "wbnahodkychat",
+      "type": "telegram",
+      "enabled": true,
+      "group": "marketplace"
+    },
+    {
+      "name": "marketplaceessChat",
+      "type": "telegram",
+      "enabled": true,
+      "group": "marketplace"
+    },
+    {
+      "name": "biznes_klient_rabota",
+      "type": "telegram",
+      "enabled": true,
+      "group": "marketplace"
+    },
+    {
+      "name": "neBlackGroup2",
+      "type": "telegram",
+      "enabled": true,
+      "group": "marketplace"
+    },
+    {
+      "name": "designphotomp",
+      "type": "telegram",
+      "enabled": true,
+      "group": "design"
+    },
+    {
+      "name": "blender_ru",
+      "type": "telegram",
+      "enabled": true,
+      "group": "design"
+    },
+    {
+      "name": "desgangchat",
+      "type": "telegram",
+      "enabled": true,
+      "group": "design"
+    },
+    {
+      "name": "Dizainerv_WB_Ozon",
+      "type": "telegram",
+      "enabled": true,
+      "group": "design"
+    },
+    {
+      "name": "Dizainerv_WBOzon",
+      "type": "telegram",
+      "enabled": true,
+      "group": "design"
+    },
+    {
+      "name": "onemarketservices",
+      "type": "telegram",
+      "enabled": true,
+      "group": "design"
+    },
+    {
+      "name": "dizainer_ozonwb",
+      "type": "telegram",
+      "enabled": true,
+      "group": "design"
+    },
+    {
+      "name": "models3DPrint",
+      "type": "telegram",
+      "enabled": true,
+      "group": "design"
+    },
+    {
+      "name": "DIZAINERTY T",
+      "type": "telegram",
+      "enabled": true,
+      "group": "design"
+    },
+    {
+      "name": "oficiant_moskva",
+      "type": "telegram",
+      "enabled": true,
+      "group": "food"
+    },
+    {
+      "name": "hostes_chat",
+      "type": "telegram",
+      "enabled": true,
+      "group": "food"
+    },
+    {
+      "name": "horecapersonal_chat",
+      "type": "telegram",
+      "enabled": true,
+      "group": "food"
+    },
+    {
+      "name": "konditer_chat",
+      "type": "telegram",
+      "enabled": true,
+      "group": "food"
+    },
+    {
+      "name": "fishmarket65",
+      "type": "telegram",
+      "enabled": true,
+      "group": "food"
+    },
+    {
+      "name": "shef_craba_perm",
+      "type": "telegram",
+      "enabled": true,
+      "group": "food"
+    },
+    {
+      "name": "biblioteka_konditera",
+      "type": "telegram",
+      "enabled": true,
+      "group": "food"
+    },
+    {
+      "name": "Shef_kraba_Kazan",
+      "type": "telegram",
+      "enabled": true,
+      "group": "food"
+    },
+    {
+      "name": "UrozhaiUlov",
+      "type": "telegram",
+      "enabled": true,
+      "group": "food"
+    },
+    {
+      "name": "gsd_recept",
+      "type": "telegram",
+      "enabled": true,
+      "group": "food"
+    },
+    {
+      "name": "oficianty_barmeny",
+      "type": "telegram",
+      "enabled": true,
+      "group": "food"
+    },
+    {
+      "name": "chat_konditer",
+      "type": "telegram",
+      "enabled": true,
+      "group": "food"
+    },
+    {
+      "name": "Shef_kraba_mgn",
+      "type": "telegram",
+      "enabled": true,
+      "group": "food"
+    },
+    {
+      "name": "shef_craba_chelyab",
+      "type": "telegram",
+      "enabled": true,
+      "group": "food"
+    },
+    {
+      "name": "forel_iz_karelii_tula",
+      "type": "telegram",
+      "enabled": true,
+      "group": "food"
+    },
+    {
+      "name": "toppovar",
+      "type": "telegram",
+      "enabled": true,
+      "group": "food"
+    },
+    {
+      "name": "Shef_kraba_izhevsk",
+      "type": "telegram",
+      "enabled": true,
+      "group": "food"
+    },
+    {
+      "name": "produkty_pitaniya",
+      "type": "telegram",
+      "enabled": true,
+      "group": "food"
+    },
+    {
+      "name": "recepty_kulinaria",
+      "type": "telegram",
+      "enabled": true,
+      "group": "food"
+    },
+    {
+      "name": "mishka_bar",
+      "type": "telegram",
+      "enabled": true,
+      "group": "food"
+    },
+    {
+      "name": "horeca_chat",
+      "type": "telegram",
+      "enabled": true,
+      "group": "food"
+    },
+    {
+      "name": "akadem_ferma",
+      "type": "telegram",
+      "enabled": true,
+      "group": "food"
+    },
+    {
+      "name": "rabotat_spb",
+      "type": "telegram",
+      "enabled": true,
+      "group": "career"
+    },
+    {
+      "name": "moskva1717",
+      "type": "telegram",
+      "enabled": true,
+      "group": "career"
+    },
+    {
+      "name": "m_worker_open",
+      "type": "telegram",
+      "enabled": true,
+      "group": "career"
+    },
+    {
+      "name": "rabota_msk_chat",
+      "type": "telegram",
+      "enabled": true,
+      "group": "career"
+    },
+    {
+      "name": "Sochi_Jobs",
+      "type": "telegram",
+      "enabled": true,
+      "group": "career"
+    },
+    {
+      "name": "rabotakrasnodar11",
+      "type": "telegram",
+      "enabled": true,
+      "group": "career"
+    },
+    {
+      "name": "rabotaspb63",
+      "type": "telegram",
+      "enabled": true,
+      "group": "career"
+    },
+    {
+      "name": "rabota_msk_tg",
+      "type": "telegram",
+      "enabled": true,
+      "group": "career"
+    },
+    {
+      "name": "krasnodarkubann",
+      "type": "telegram",
+      "enabled": true,
+      "group": "career"
+    },
+    {
+      "name": "rabotaekb2021",
+      "type": "telegram",
+      "enabled": true,
+      "group": "career"
+    },
+    {
+      "name": "ekb_rabota_podrabotka",
+      "type": "telegram",
+      "enabled": true,
+      "group": "career"
+    },
+    {
+      "name": "rabota_v_moskva",
+      "type": "telegram",
+      "enabled": true,
+      "group": "career"
+    },
+    {
+      "name": "stroitelstvo_msk",
+      "type": "telegram",
+      "enabled": true,
+      "group": "career"
+    },
+    {
+      "name": "freelance_birzha",
+      "type": "telegram",
+      "enabled": true,
+      "group": "career"
+    },
+    {
+      "name": "freelance_chatik0",
+      "type": "telegram",
+      "enabled": true,
+      "group": "career"
+    },
+    {
+      "name": "birzha_vakansiy",
+      "type": "telegram",
+      "enabled": true,
+      "group": "career"
+    },
+    {
+      "name": "jobosphere",
+      "type": "telegram",
+      "enabled": true,
+      "group": "career"
+    },
+    {
+      "name": "moskva_vakhta",
+      "type": "telegram",
+      "enabled": true,
+      "group": "career"
+    },
+    {
+      "name": "vakansii_infobiznes",
+      "type": "telegram",
+      "enabled": true,
+      "group": "career"
+    },
+    {
+      "name": "tezwork_moskva",
+      "type": "telegram",
+      "enabled": true,
+      "group": "career"
+    },
+    {
+      "name": "freeassistant",
+      "type": "telegram",
+      "enabled": true,
+      "group": "career"
+    },
+    {
+      "name": "zhfut",
+      "type": "telegram",
+      "enabled": true,
+      "group": "sport"
+    },
+    {
+      "name": "GOAL24_Chat",
+      "type": "telegram",
+      "enabled": true,
+      "group": "sport"
+    },
+    {
+      "name": "@newsbarcachat",
+      "type": "telegram",
+      "enabled": true,
+      "group": "sport"
+    },
+    {
+      "name": "chat_proefootball",
+      "type": "telegram",
+      "enabled": true,
+      "group": "sport"
+    },
+    {
+      "name": "GOAL24FAM",
+      "type": "telegram",
+      "enabled": true,
+      "group": "sport"
+    },
+    {
+      "name": "Banda_Lamparda8",
+      "type": "telegram",
+      "enabled": true,
+      "group": "sport"
+    },
+    {
+      "name": "fckrasnodarChat",
+      "type": "telegram",
+      "enabled": true,
+      "group": "sport"
+    },
+    {
+      "name": "champchat2",
+      "type": "telegram",
+      "enabled": true,
+      "group": "sport"
+    },
+    {
+      "name": "jivichatt",
+      "type": "telegram",
+      "enabled": true,
+      "group": "sport"
+    },
+    {
+      "name": "okkosportchat",
+      "type": "telegram",
+      "enabled": true,
+      "group": "sport"
+    },
+    {
+      "name": "rgchatik",
+      "type": "telegram",
+      "enabled": true,
+      "group": "sport"
+    },
+    {
+      "name": "figurnoe_katanie",
+      "type": "telegram",
+      "enabled": true,
+      "group": "sport"
+    },
+    {
+      "name": "@rztkd_chat",
+      "type": "telegram",
+      "enabled": true,
+      "group": "tech"
+    },
+    {
+      "name": "@radio_t_chat",
+      "type": "telegram",
+      "enabled": true,
+      "group": "tech"
+    },
+    {
+      "name": "@chat_xtb",
+      "type": "telegram",
+      "enabled": true,
+      "group": "tech"
+    },
+    {
+      "name": "@aezachat_ru",
+      "type": "telegram",
+      "enabled": true,
+      "group": "tech"
+    },
+    {
+      "name": "@AntichatOfficial",
+      "type": "telegram",
+      "enabled": true,
+      "group": "tech"
+    },
+    {
+      "name": "@byebyedpi_group",
+      "type": "telegram",
+      "enabled": true,
+      "group": "tech"
+    },
+    {
+      "name": "@mtchatik",
+      "type": "telegram",
+      "enabled": true,
+      "group": "tech"
+    },
+    {
+      "name": "@hostvds_cloud",
+      "type": "telegram",
+      "enabled": true,
+      "group": "tech"
+    },
+    {
+      "name": "@devops_ru",
+      "type": "telegram",
+      "enabled": true,
+      "group": "tech"
+    },
+    {
+      "name": "@kubernetes_ru",
+      "type": "telegram",
+      "enabled": true,
+      "group": "tech"
+    },
+    {
+      "name": "@sqlcom",
+      "type": "telegram",
+      "enabled": true,
+      "group": "tech"
+    },
+    {
+      "name": "@androidinsider_oficial",
+      "type": "telegram",
+      "enabled": true,
+      "group": "tech"
+    },
+    {
+      "name": "@rudart",
+      "type": "telegram",
+      "enabled": true,
+      "group": "tech"
+    },
+    {
+      "name": "@vkusvill_comm",
+      "type": "telegram",
+      "enabled": true,
+      "group": "food"
+    },
+    {
+      "name": "@lovely_recepty",
+      "type": "telegram",
+      "enabled": true,
+      "group": "food"
+    },
+    {
+      "name": "@myasoforum",
+      "type": "telegram",
+      "enabled": true,
+      "group": "food"
+    },
+    {
+      "name": "@fishlook_chat",
+      "type": "telegram",
+      "enabled": true,
+      "group": "food"
+    },
+    {
+      "name": "@recepty_tam",
+      "type": "telegram",
+      "enabled": true,
+      "group": "food"
+    },
+    {
+      "name": "@freelance_chat_ru",
+      "type": "telegram",
+      "enabled": true,
+      "group": "career"
+    },
+    {
+      "name": "@rpl_chat",
+      "type": "telegram",
+      "enabled": true,
+      "group": "sport"
+    },
+    {
+      "name": "@zenit_chat_fc",
+      "type": "telegram",
+      "enabled": true,
+      "group": "sport"
+    },
+    {
+      "name": "@psih_chat",
+      "type": "telegram",
+      "enabled": true,
+      "group": "psychology"
+    },
+    {
+      "name": "@PsiologWeHelp",
+      "type": "telegram",
+      "enabled": true,
+      "group": "psychology"
+    },
+    {
+      "name": "@wbnahodkychat",
+      "type": "telegram",
+      "enabled": true,
+      "group": "marketplace"
+    },
+    {
+      "name": "@repetitor_repetitori",
+      "type": "telegram",
+      "enabled": true,
+      "group": "education"
+    },
+    {
+      "name": "@studentsfortutors",
+      "type": "telegram",
+      "enabled": true,
+      "group": "education"
+    },
+    {
+      "name": "@lessondeliverychat",
+      "type": "telegram",
+      "enabled": true,
+      "group": "education"
+    }
+  ]
+}

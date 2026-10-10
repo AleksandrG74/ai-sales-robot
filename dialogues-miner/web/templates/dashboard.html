@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Статистика · dialogues-miner{% endblock %}
+{% block content %}
+<h2>Статистика</h2>
+
+<div class="cards">
+    <div class="card">
+        <div class="num">{{ stats.total }}</div>
+        <div class="lbl">Всего тредов</div>
+    </div>
+    <div class="card">
+        <div class="num">{{ stats.channels_count }}</div>
+        <div class="lbl">Каналов</div>
+    </div>
+    <div class="card">
+        <div class="num">{{ stats.avg_words }}</div>
+        <div class="lbl">Средняя длина (слов)</div>
+    </div>
+    <div class="card">
+        <div class="num">{{ stats.target_total }}</div>
+        <div class="lbl">Слов-согласий</div>
+    </div>
+</div>
+
+<h3>По группам</h3>
+<table>
+    <thead>
+        <tr><th>Группа</th><th>Тредов</th></tr>
+    </thead>
+    <tbody>
+        {% for group, cnt in stats.by_group %}
+        <tr><td>{{ group }}</td><td>{{ cnt }}</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h3>Топ-10 каналов</h3>
+<table>
+    <thead>
+        <tr><th>Канал</th><th>Тредов</th></tr>
+    </thead>
+    <tbody>
+        {% for name, cnt in stats.by_channel[:10] %}
+        <tr><td>{{ name }}</td><td>{{ cnt }}</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

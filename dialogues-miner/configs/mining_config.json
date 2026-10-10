@@ -1,0 +1,14 @@
+{
+  "max_words": 200,
+  "min_authors": 2,
+  "target_authors": 1,
+  "min_message_words": 1,
+  "skip_bots": true,
+  "output_dir": "data/raw_threads",
+  "database_path": "data/dialogues.db",
+  "fetch": {
+    "days_back": 365,
+    "limit_per_channel": 5000,
+    "batch_size": 50
+  }
+}

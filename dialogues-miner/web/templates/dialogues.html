@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Треды · dialogues-miner{% endblock %}
+{% block content %}
+<h2>Все треды ({{ index.total }})</h2>
+
+<table>
+    <thead>
+        <tr>
+            <th>Файл</th>
+            <th>Канал</th>
+            <th>Авторов</th>
+            <th>Слов</th>
+            <th>Целевых</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for d in index.dialogues %}
+        <tr>
+            <td>{{ d.file }}</td>
+            <td>{{ d.sender }}</td>
+            <td>{{ d.authors_count }}</td>
+            <td>{{ d.words_count }}</td>
+            <td>{{ d.target_count }}</td>
+            <td><a href="/dialogues/{{ d.file }}">Открыть</a></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

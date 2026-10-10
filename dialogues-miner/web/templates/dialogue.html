@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Тред {{ d.seed_id }} · dialogues-miner{% endblock %}
+{% block content %}
+<h2>Тред {{ d.seed_id }} — {{ d.sender }}</h2>
+<p class="meta">
+    Авторов: {{ d.authors_count }} ·
+    Слов: {{ d.words_count }} ·
+    Целевых слов: {{ d.target_count }} ·
+    Автор согласия:
+    {% if d.target_author_username %}
+        <a href="https://t.me/{{ d.target_author_username }}" target="_blank">@{{ d.target_author_username }}</a>
+    {% else %}
+        {{ d.target_author }}
+    {% endif %}
+</p>
+{% if d.source_message_url %}
+<p class="meta">
+    📰 Инфоповод:
+    <a href="{{ d.source_message_url }}" target="_blank">{{ d.source_message_url }}</a>
+</p>
+{% endif %}
+
+<div class="messages">
+    {% for m in d.messages %}
+    <div class="msg {% if m.is_target %}msg-target{% endif %}">
+        <div class="msg-head">
+            <span class="author">
+                {% if m.author_username %}
+                    <a href="https://t.me/{{ m.author_username }}" target="_blank">@{{ m.author_username }}</a>
+                {% elif m.author_id %}
+                    {{ m.author_id }}
+                {% else %}
+                    —
+                {% endif %}
+            </span>
+            <span class="time">{{ m.timestamp or '' }}</span>
+            {% if m.is_target %}<span class="badge">целевое</span>{% endif %}
+            {% if m.fwd_from_message_url %}
+                <span class="badge"><a href="{{ m.fwd_from_message_url }}" target="_blank">→ источник</a></span>
+            {% elif m.source_message_url and m.id != d.seed_id %}
+                <span class="badge"><a href="{{ m.source_message_url }}" target="_blank">→ инфоповод</a></span>
+            {% endif %}
+        </div>
+        <div class="msg-body">{{ m.message }}</div>
+    </div>
+    {% endfor %}
+</div>
+
+<p><a href="/dialogues">← Все треды</a></p>
+{% endblock %}

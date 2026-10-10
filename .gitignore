@@ -1,0 +1,58 @@
+# === Python ===
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# === Virtual env ===
+.venv/
+venv/
+env/
+
+# === IDE ===
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# === OS ===
+.DS_Store
+Thumbs.db
+
+# === Env & secrets ===
+.env
+.env.local
+*.env
+
+# === Data (SQLite, JSON, кэш моделей) ===
+data/*.db
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
+data/hf_cache/
+data/raw_threads/*.json
+data/raw_threads/_index.json
+data/strategies/*.json
+!data/.gitkeep
+!data/strategies/.gitkeep
+!data/raw_threads/.gitkeep
+
+# === Logs ===
+logs/
+*.log
+
+# === dialogues-miner: то, что не нужно от него тащить ===
+dialogues-miner/data/*.db
+dialogues-miner/data/*.db-journal
+dialogues-miner/data/*.db-wal
+dialogues-miner/data/*.db-shm
+dialogues-miner/data/raw_threads/*.json
+dialogues-miner/sessions/
+dialogues-miner/__pycache__/
+dialogues-miner/**/__pycache__/
+dialogues-miner/.env

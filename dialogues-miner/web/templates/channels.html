@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Каналы · dialogues-miner{% endblock %}
+{% block content %}
+<h2>По каналам</h2>
+
+<table>
+    <thead>
+        <tr><th>Канал</th><th>Тредов</th></tr>
+    </thead>
+    <tbody>
+        {% for name, cnt in stats.by_channel %}
+        <tr><td>{{ name }}</td><td>{{ cnt }}</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

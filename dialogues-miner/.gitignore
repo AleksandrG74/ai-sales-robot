@@ -1,0 +1,57 @@
+# ─── Python ────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# ─── Virtualenv ────────────────────────────────
+venv/
+.venv/
+env/
+ENV/
+
+# ─── .env (секреты) ────────────────────────────
+.env
+.env.local
+!.env.example
+
+# ─── Telegram sessions ─────────────────────────
+*.session
+*.session-journal
+sessions/
+
+# ─── Данные ────────────────────────────────────
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+data/raw_threads/
+data/exports/
+!data/.gitkeep
+
+# ─── Логи ──────────────────────────────────────
+logs/
+*.log
+
+# ─── Docker ────────────────────────────────────
+docker-compose.override.yml
+
+# ─── IDE / OS ──────────────────────────────────
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+# ===  ===
+data/raw_threads.bak_*
+data/raw_threads.bak*/
+data/*.bak_*
+*.bak_*
+
+# ===  ===
+data/sources.json
+
+# ===  () ===
+.env
+.env.*
+data/dialogues.d

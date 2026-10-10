@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  dialogues-miner:
+    build: .
+    image: dialogues-miner:latest
+    container_name: dialogues_miner
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./sessions:/app/sessions
+      - ./sources.json:/app/sources.json:ro
+      - ./target_words.json:/app/target_words.json:ro
+      - ./configs:/app/configs:ro
+    working_dir: /app
+    command: ["python", "main.py", "--mode", "web"]
+    ports:
+      - "8000:8001"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.8'
+          memory: 512M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Профиль для разовой качки: docker compose run --rm miner-fetch
+  miner-fetch:
+    build: .
+    image: dialogues-miner:latest
+    profiles: ["fetch"]
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./sessions:/app/sessions
+      - ./sources.json:/app/sources.json:ro
+      - ./target_words.json:/app/target_words.json:ro
+      - ./configs:/app/configs:ro
+    working_dir: /app
+    command: ["python", "main.py", "--mode", "all"]
+
+  # Профиль для поиска тредов: docker compose run --rm miner-mine
+  miner-mine:
+    build: .
+    image: dialogues-miner:latest
+    profiles: ["mine"]
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./sources.json:/app/sources.json:ro
+      - ./target_words.json:/app/target_words.json:ro
+      - ./configs:/app/configs:ro
+    working_dir: /app
+    command: ["python", "main.py", "--mode", "mine"]

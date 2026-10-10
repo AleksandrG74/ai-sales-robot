@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}dialogues-miner{% endblock %}</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header>
+        <h1><a href="/">dialogues-miner</a></h1>
+        <nav>
+            <a href="/">Главная</a>
+            <a href="/channels">Каналы</a>
+            <a href="/dialogues">Треды</a>
+            <a href="/download">Скачать</a>
+            <span class="user">{{ user }}</span>
+        </nav>
+    </header>
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+    <footer>
+        dialogues-miner · {{ user }}
+    </footer>
+</body>
+</html>
