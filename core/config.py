@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -89,6 +89,37 @@ class Settings(BaseSettings):
         default=BASE_DIR / "dialogues-miner" / "target_words.json",
         alias="MINER_TARGET_WORDS",
     )
+
+    # ---------- validators ----------
+    @field_validator(
+        "telegram_api_id",
+        "telegram_operator_chat_id",
+        mode="before",
+    )
+    @classmethod
+    def _empty_str_to_none_int(cls, v: Any) -> Any:
+        if v is None:
+            return None
+        if isinstance(v, str) and v.strip() == "":
+            return None
+        return v
+
+    @field_validator(
+        "telegram_api_hash",
+        "telegram_phone",
+        "telegram_bot_token",
+        "deepseek_api_key",
+        "dashboard_user",
+        "dashboard_pass",
+        mode="before",
+    )
+    @classmethod
+    def _empty_str_to_none_str(cls, v: Any) -> Any:
+        if v is None:
+            return None
+        if isinstance(v, str) and v.strip() == "":
+            return None
+        return v
 
     def ensure_dirs(self) -> None:
         for p in (
