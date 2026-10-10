@@ -55,18 +55,18 @@ SERVICES: List[Dict[str, object]] = [
     },
     {
         "name": "dialogue-worker",
-        "cmd": ["python", "-u", "workers/dialogue/main.py"],
+        "cmd": ["python", "-u", "-m", "workers.dialogue.main"],
         "cwd": str(BASE_DIR),
     },
     {
         "name": "telegram-worker",
-        "cmd": ["python", "-u", "workers/telegram/main.py"],
+        "cmd": ["python", "-u", "-m", "workers.telegram.main"],
         "cwd": str(BASE_DIR),
     },
     {
         "name": "web-backend",
         "cmd": [
-            "uvicorn",
+            "python", "-u", "-m", "uvicorn",
             "web.backend.main:app",
             "--host", "0.0.0.0",
             "--port", os.getenv("WEB_BACKEND_PORT", "8000"),

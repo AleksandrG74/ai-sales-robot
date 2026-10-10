@@ -1,0 +1,45 @@
+version: "3.8"
+
+services:
+  ai-sales-robot-base:
+    build:
+      context: .
+      dockerfile: Dockerfile.base
+    image: ai-sales-robot-base:latest
+    # Это служебный сервис — только для сборки base-образа.
+    # Запускать его не нужно, docker compose build создаст образ.
+    profiles: ["build-only"]
+    command: ["true"]
+
+  ai-sales-robot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ai-sales-robot:latest
+    container_name: ai_sales_robot
+    restart: unless-stopped
+    depends_on:
+      ai-sales-robot-base:
+        condition: service_completed_successfully
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./configs:/app/configs
+      - ./dialogues-miner/sessions:/app/dialogues-miner/sessions
+      - ./dialogues-miner/sources.json:/app/dialogues-miner/sources.json:ro
+      - ./dialogues-miner/target_words.json:/app/dialogues-miner/target_words.json:ro
+      - ./dialogues-miner/configs:/app/dialogues-miner/configs:ro
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 3500M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
