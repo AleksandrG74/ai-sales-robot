@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}AI Sales Robot{% endblock %}</title>
+    <link rel="stylesheet" href="/static/style.css">
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <header class="site-header">
+        <div class="container">
+            <a class="logo" href="/">🤖 AI Sales Robot</a>
+            <nav class="nav">
+                <a href="/">Дашборд</a>
+                <a href="/dialogues">Диалоги</a>
+                <a href="/live">Live</a>
+                <a href="/strategies">Стратегии</a>
+                <a href="/bridges">Мосты</a>
+                <a href="/words">Токены</a>
+                <a href="/runs">Прогоны</a>
+                <a href="/config">Конфиг</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="site-footer">
+        <div class="container">
+            <span>AI Sales Robot — Web CRM · <a href="/docs">API docs</a></span>
+        </div>
+    </footer>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

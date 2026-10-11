@@ -122,17 +122,7 @@ def health() -> dict:
     return {"status": "ok"}
 
 
-@app.get("/")
-def root() -> dict:
-    """
-    Временный корень: пока pages.py не перехватил /.
-    Как только pages.py начнёт отдавать HTML на /, этот эндпоинт
-    будет перекрыт — FastAPI выберет первый зарегистрированный роутер,
-    поэтому pages.router должен быть подключён ДО этого корня.
-    Пока — оставляем JSON, чтобы healthcheck/CLI могли проверить,
-    что сервис жив.
-    """
-    return {"service": "ai-sales-robot", "version": app.version}
+# JSON-корень убран — / теперь обслуживает pages.py (dashboard.html).
 
 
 # === STARTUP / SHUTDOWN ===
