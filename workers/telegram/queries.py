@@ -30,15 +30,35 @@ logger = logging.getLogger(__name__)
 
 # === УТИЛИТЫ ===
 
-def _safe_json_loads(raw: Optional[str]) -> Optional[Any]:
-    """Безопасный парсинг JSON-строки. Возвращает None при ошибке."""
-    if not raw:
+def _safe_json_loads(raw):
+    """
+    Безопасный парсинг JSON-поля.
+    Принимает:
+      - None -> None
+      - str / bytes -> json.loads
+      - dict / list -> возвращает как есть (SQLAlchemy JSON-тип уже распарсил)
+    При ошибке -> None.
+    """
+    if raw is None:
         return None
-    try:
-        return json.loads(raw)
-    except (json.JSONDecodeError, TypeError) as e:
-        logger.warning("Не удалось распарсить JSON: %s", e)
-        return None
+    if isinstance(raw, (dict, list)):
+        return raw
+    if isinstance(raw, (bytes, bytearray)):
+        try:
+            raw = raw.decode("utf-8")
+        except Exception as e:
+            logger.warning("Не удалось декодировать JSON-байты: %s", e)
+            return None
+    if isinstance(raw, str):
+        if not raw:
+            return None
+        try:
+            return json.loads(raw)
+        except (json.JSONDecodeError, TypeError) as e:
+            logger.warning("Не удалось распарсить JSON: %s", e)
+            return None
+    logger.warning("Неожиданный тип result_json: %s", type(raw).__name__)
+    return None
 
 
 def _iso(dt: Optional[datetime]) -> Optional[str]:
