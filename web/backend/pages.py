@@ -238,7 +238,11 @@ def page_live_chat(
 # === CONFIG ===
 
 @router.get("/config", response_class=HTMLResponse)
-def page_config(request: Request) -> HTMLResponse:
+def page_config(
+    request: Request,
+    saved: Optional[str] = Query(None),
+    error: Optional[str] = Query(None),
+) -> HTMLResponse:
     try:
         product = _read_json(_configs_dir() / "product.json") or {}
         goal = _read_json(_configs_dir() / "goal.json") or {}
@@ -249,6 +253,7 @@ def page_config(request: Request) -> HTMLResponse:
     return _render(
         request, "config.html",
         product=product, goal=goal,
+        saved=saved, error=error,
         product_json=json.dumps(product, ensure_ascii=False, indent=2),
         goal_json=json.dumps(goal, ensure_ascii=False, indent=2),
     )

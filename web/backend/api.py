@@ -24,7 +24,8 @@ import os
 from pathlib import Path
 from typing import Any, Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Form, HTTPException, Query
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 
 from web.backend import queries as q
@@ -408,3 +409,68 @@ def api_config_goal_set(body: ConfigUpdateRequest) -> dict:
         raise HTTPException(status_code=500, detail="failed to write goal.json")
     logger.info("goal.json обновлён (%d ключей).", len(body.data))
     return {"ok": True, "path": str(path)}
+
+
+# === FORM-варианты (SSR, Post/Redirect/Get) ===
+
+def _parse_features(raw: str) -> list:
+    """Строка (одна фича на строку) -> список непустых строк."""
+    if not raw:
+        return []
+    return [ln.strip() for ln in raw.splitlines() if ln.strip()]
+
+
+@router.post("/config/product/form")
+def api_config_product_form(
+    name: str = Form(""),
+    description: str = Form(""),
+    price: float = Form(0.0),
+    currency: str = Form("RUB"),
+    url: str = Form(""),
+    features: str = Form(""),
+) -> RedirectResponse:
+    """
+    Принимает форму из /config, сохраняет product.json, редиректит на /config?saved=product.
+    Ошибки — через /config?error=...
+    """
+    try:
+        data = {
+            "name": (name or "").strip(),
+            "description": (description or "").strip(),
+            "price": float(price or 0),
+            "currency": (currency or "RUB").strip() or "RUB",
+            "url": (url or "").strip(),
+            "features": _parse_features(features),
+        }
+        path = _configs_dir() / "product.json"
+        if not _write_json(path, data):
+            return RedirectResponse(url="/config?error=Не+удалось+записать+product.json", status_code=303)
+        logger.info("product.json (form) обновлён: %s ключей.", len(data))
+        return RedirectResponse(url="/config?saved=product", status_code=303)
+    except Exception as e:
+        logger.exception("product form save упал: %s", e)
+        return RedirectResponse(url="/config?error=product+save+failed", status_code=303)
+
+
+@router.post("/config/goal/form")
+def api_config_goal_form(
+    goal: str = Form(""),
+    success_criteria: str = Form(""),
+    tone: str = Form("friendly"),
+    max_dialogue_turns: int = Form(0),
+) -> RedirectResponse:
+    try:
+        data = {
+            "goal": (goal or "").strip(),
+            "success_criteria": (success_criteria or "").strip(),
+            "tone": (tone or "friendly").strip() or "friendly",
+            "max_dialogue_turns": int(max_dialogue_turns or 0),
+        }
+        path = _configs_dir() / "goal.json"
+        if not _write_json(path, data):
+            return RedirectResponse(url="/config?error=Не+удалось+записать+goal.json", status_code=303)
+        logger.info("goal.json (form) обновлён: %s ключей.", len(data))
+        return RedirectResponse(url="/config?saved=goal", status_code=303)
+    except Exception as e:
+        logger.exception("goal form save упал: %s", e)
+        return RedirectResponse(url="/config?error=goal+save+failed", status_code=303)
