@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% block title %}Диалог {{ dialogue.dialogue_id }} — AI Sales Robot{% endblock %}
+
+{% block content %}
+<nav class="breadcrumbs">
+    <a href="/dialogues">← Диалоги</a>
+    <span class="sep">/</span>
+    <code>{{ dialogue.dialogue_id }}</code>
+</nav>
+
+<h1>{{ dialogue.dialogue_id }}</h1>
+
+{% set r = dialogue.result or {} %}
+
+<section class="panel">
+    <h2>Общее</h2>
+    <table class="kv">
+        <tr><th>dialogue_id</th><td><code>{{ dialogue.dialogue_id }}</code></td></tr>
+        <tr><th>sender</th><td>{{ dialogue.sender or "—" }}</td></tr>
+        <tr><th>seed_id</th><td>{{ dialogue.seed_id or "—" }}</td></tr>
+        <tr><th>status</th><td>
+            <span class="badge badge-{{ dialogue.status }}">{{ dialogue.status }}</span>
+        </td></tr>
+        {% if dialogue.error %}
+        <tr><th>error</th><td class="error">{{ dialogue.error }}</td></tr>
+        {% endif %}
+    </table>
+</section>
+
+<section class="panel">
+    <h2>Метрики</h2>
+    <table class="kv">
+        <tr><th>phase</th><td>{{ r.get('phase', '—') }}</td></tr>
+
+        <tr>
+            <th>role</th>
+            <td>
+                {% if r.get('role') %}
+                    <span class="badge badge-role-{{ r.get('role') }}">{{ r.get('role') }}</span>
+                {% else %}—{% endif %}
+                {% if r.get('role_source') %}
+                    <span class="muted">({{ r.get('role_source') }})</span>
+                {% endif %}
+            </td>
+        </tr>
+
+        <tr>
+            <th>aggression</th>
+            <td>
+                {% set agg = r.get('aggression') or r.get('aggression_level') %}
+                {% if agg %}
+                    <span class="badge badge-agg-{{ agg }}">{{ agg }}</span>
+                {% else %}—{% endif %}
+                {% if r.get('aggression_source') %}
+                    <span class="muted">({{ r.get('aggression_source') }})</span>
+                {% endif %}
+            </td>
+        </tr>
+
+        <tr><th>token_group</th><td>{{ r.get('token_group', '—') }}</td></tr>
+        <tr><th>stage_before</th><td>{{ r.get('stage_before', '—') }}</td></tr>
+        <tr><th>stage_after</th><td>{{ r.get('stage_after', '—') }}</td></tr>
+    </table>
+
+    <h3>Оценки</h3>
+    <table class="kv">
+        <tr>
+            <th>score</th>
+            <td>{% if r.get('score') is not none %}{{ "%.4f"|format(r.get('score')) }}{% else %}—{% endif %}</td>
+        </tr>
+        <tr>
+            <th>score_dialogue</th>
+            <td>{% if r.get('score_dialogue') is not none %}{{ "%.4f"|format(r.get('score_dialogue')) }}{% else %}—{% endif %}</td>
+        </tr>
+        <tr>
+            <th>score_response</th>
+            <td>{% if r.get('score_response') is not none %}{{ "%.4f"|format(r.get('score_response')) }}{% else %}—{% endif %}</td>
+        </tr>
+        <tr>
+            <th>cosine</th>
+            <td>{% if r.get('cosine') is not none %}{{ "%.4f"|format(r.get('cosine')) }}{% else %}—{% endif %}</td>
+        </tr>
+        <tr>
+            <th>similarity_to_target</th>
+            <td>{% if r.get('similarity_to_target') is not none %}{{ "%.4f"|format(r.get('similarity_to_target')) }}{% else %}—{% endif %}</td>
+        </tr>
+    </table>
+
+    <h3>LLM-вызов</h3>
+    <table class="kv">
+        <tr><th>tokens_in</th><td>{{ r.get('tokens_in', '—') }}</td></tr>
+        <tr><th>tokens_out</th><td>{{ r.get('tokens_out', '—') }}</td></tr>
+        <tr><th>finish_reason</th><td>{{ r.get('finish_reason', '—') }}</td></tr>
+        <tr><th>duration_ms</th><td>{{ r.get('duration_ms', '—') }}</td></tr>
+        <tr><th>llm_total_ms</th><td>{{ r.get('llm_total_ms', '—') }}</td></tr>
+        <tr><th>embedding_load_ms</th><td>{{ r.get('embedding_load_ms', '—') }}</td></tr>
+        <tr><th>version_id</th><td>{{ r.get('version_id', '—') }}</td></tr>
+    </table>
+
+    <h3>Токены</h3>
+    <table class="kv">
+        <tr>
+            <th>expected_word</th>
+            <td>
+                {% if r.get('expected_word') %}
+                    <code>{{ r.get('expected_word') }}</code>
+                {% else %}—{% endif %}
+            </td>
+        </tr>
+        <tr>
+            <th>top_tokens</th>
+            <td>
+                {% if r.get('top_tokens') %}
+                    {% for t in r.get('top_tokens') %}
+                        <span class="chip">{{ t }}</span>
+                    {% endfor %}
+                {% else %}—{% endif %}
+            </td>
+        </tr>
+    </table>
+</section>
+
+<section class="panel">
+    <h2>Промпт</h2>
+    <details open>
+        <summary>Показать / свернуть</summary>
+        <pre class="code-block">{{ r.get('prompt') or "—" }}</pre>
+    </details>
+</section>
+
+<section class="panel">
+    <h2>Ответ LLM (actual)</h2>
+    <details open>
+        <summary>Показать / свернуть</summary>
+        <pre class="code-block">{{ r.get('actual') or r.get('response') or "—" }}</pre>
+    </details>
+</section>
+
+<section class="panel">
+    <h2>Ожидаемый ответ менеджера (expected_text)</h2>
+    <details open>
+        <summary>Показать / свернуть</summary>
+        <pre class="code-block">{{ r.get('expected_text') or "—" }}</pre>
+    </details>
+</section>
+
+{% if r and not r.get('prompt') and not r.get('actual') and not r.get('expected_text') %}
+<section class="panel">
+    <h2>result_json (raw)</h2>
+    <details>
+        <summary>Показать / свернуть</summary>
+        <pre class="code-block">{{ r | tojson(indent=2) }}</pre>
+    </details>
+</section>
+{% endif %}
+{% endblock %}
