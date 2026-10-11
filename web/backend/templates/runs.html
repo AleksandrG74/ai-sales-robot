@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Прогоны — AI Sales Robot{% endblock %}
+
+{% block content %}
+<h1>Прогоны ({{ runs|length }})</h1>
+
+{% if runs %}
+<table class="data wide">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>run_type</th>
+            <th>status</th>
+            <th>started_at</th>
+            <th>finished_at</th>
+            <th>duration</th>
+            <th>items_processed</th>
+            <th>error</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for r in runs %}
+        <tr>
+            <td>{{ r.id }}</td>
+            <td>{{ r.run_type or "—" }}</td>
+            <td>
+                <span class="badge badge-{{ r.status }}">{{ r.status }}</span>
+            </td>
+            <td>{{ r.started_at or "—" }}</td>
+            <td>{{ r.finished_at or "—" }}</td>
+            <td>
+                {% if r.duration_sec is not none %}
+                    {% set sec = r.duration_sec %}
+                    {% if sec < 60 %}
+                        {{ "%.1f"|format(sec) }}с
+                    {% elif sec < 3600 %}
+                        {{ (sec // 60)|int }}м {{ (sec % 60)|int }}с
+                    {% else %}
+                        {{ (sec // 3600)|int }}ч {{ ((sec % 3600) // 60)|int }}м
+                    {% endif %}
+                {% else %}
+                    —
+                {% endif %}
+            </td>
+            <td>{{ r.items_processed or 0 }}</td>
+            <td class="error">
+                {% if r.error_text %}{{ r.error_text[:120] }}{% else %}—{% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p class="muted">Прогонов нет.</p>
+{% endif %}
+{% endblock %}

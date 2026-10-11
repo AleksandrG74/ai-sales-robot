@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Токены — AI Sales Robot{% endblock %}
+
+{% block content %}
+<h1>Топ токенов ({{ words|length }})</h1>
+
+<p class="muted">Сортировка: по success_rate (убывание), при равенстве — по total_count.</p>
+
+{% if words %}
+<table class="data wide">
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>word</th>
+            <th>total_count</th>
+            <th>success_count</th>
+            <th>success_rate</th>
+            <th>pmi_score</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for w in words %}
+        <tr>
+            <td>{{ loop.index }}</td>
+            <td><code>{{ w.word }}</code></td>
+            <td>{{ w.total_count or 0 }}</td>
+            <td>{{ w.success_count or 0 }}</td>
+            <td>
+                {% if w.success_rate is not none %}{{ "%.4f"|format(w.success_rate) }}{% else %}—{% endif %}
+            </td>
+            <td>
+                {% if w.pmi_score is not none %}{{ "%.4f"|format(w.pmi_score) }}{% else %}—{% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p class="muted">Данных нет.</p>
+{% endif %}
+{% endblock %}

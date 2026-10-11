@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Мосты — AI Sales Robot{% endblock %}
+
+{% block content %}
+<h1>Топ мостов ({{ bridges|length }})</h1>
+
+{% if bridges %}
+<table class="data wide">
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>bridge_token</th>
+            <th>Переход</th>
+            <th>weight</th>
+            <th>success</th>
+            <th>success_rate</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for b in bridges %}
+        <tr>
+            <td>{{ loop.index }}</td>
+            <td><code>{{ b.bridge_token }}</code></td>
+            <td>
+                <span class="chip chip-from">{{ b.from_group or "—" }}</span>
+                <span class="arrow">→</span>
+                <span class="chip chip-to">{{ b.to_group or "—" }}</span>
+            </td>
+            <td>
+                {% if b.weight is not none %}{{ "%.4f"|format(b.weight) }}{% else %}—{% endif %}
+            </td>
+            <td>
+                {{ b.success_count or 0 }} / {{ b.total_count or 0 }}
+            </td>
+            <td>
+                {% set tc = b.total_count or 0 %}
+                {% if tc > 0 %}
+                    {% set rate = (b.success_count or 0) / tc %}
+                    {{ "%.1f"|format(rate * 100) }}%
+                {% else %}
+                    —
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p class="muted">Мостов нет.</p>
+{% endif %}
+{% endblock %}
