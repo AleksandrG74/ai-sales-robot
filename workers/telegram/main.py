@@ -1,74 +1,197 @@
-"""telegram-worker: бот оператора (заглушка).
-
-На этапе 6 здесь будет aiogram 3.x бот:
-- /status, /stats, /dialogues, /versions, /rollback
-- показ найденных лидов и версий стратегий.
-
-Пока — просто живой процесс.
+# workers/telegram/main.py
 """
-from __future__ import annotations
+Точка входа бота оператора (aiogram 3.x).
 
+ВАЖНО: Telegram Bot API доступен только с сервера (Германия).
+Локальный запуск на ПК не работает (Telegram в РФ не доступен без прокси/VPN).
+На ПК допустимы только статические проверки:
+    python -c "import ast; ast.parse(open('workers/telegram/main.py', encoding='utf-8').read())"
+    python -c "import workers.telegram.main"   # не создаёт Bot, не делает сетевых вызовов
+
+Bot инициализируется лениво — внутри async def _run(), чтобы импорт модуля
+на ПК не триггерил сетевые вызовы и не падал.
+"""
+
+import asyncio
 import logging
 import os
 import signal
 import sys
-import time
-from logging.handlers import RotatingFileHandler
+from pathlib import Path
+from typing import Optional
 
-from core.config import settings
+from aiogram import Bot, Dispatcher
+from aiogram.client.default import DefaultBotProperties
+from aiogram.enums import ParseMode
 
-LOG_FILE = settings.logs_dir / "telegram-worker.log"
-LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+from workers.telegram.handlers import router as operator_router
+
+logger = logging.getLogger("telegram-worker")
 
 
-def setup_logging() -> logging.Logger:
-    logger = logging.getLogger("telegram-worker")
-    logger.setLevel(settings.log_level.upper())
+# === ЛОГИРОВАНИЕ ===
+
+def _setup_logging() -> None:
+    """
+    Логирование в /app/logs/telegram-worker.log + stdout.
+    Если /app/logs недоступен (локальный запуск) — пишем в ./logs/.
+    """
+    level_name = os.getenv("LOG_LEVEL", "INFO").upper()
+    level = getattr(logging, level_name, logging.INFO)
+
+    root = logging.getLogger()
+    root.setLevel(level)
+    # Чистим хендлеры, чтобы повторный вызов не дублировал строки
+    for h in list(root.handlers):
+        root.removeHandler(h)
+
     fmt = logging.Formatter(
         "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
-    fh = RotatingFileHandler(
-        LOG_FILE, maxBytes=10 * 1024 * 1024, backupCount=3, encoding="utf-8"
-    )
-    fh.setFormatter(fmt)
-    logger.addHandler(fh)
+
+    # stdout
     sh = logging.StreamHandler(sys.stdout)
     sh.setFormatter(fmt)
-    logger.addHandler(sh)
-    logger.propagate = False
-    return logger
+    sh.setLevel(level)
+    root.addHandler(sh)
+
+    # файл
+    log_dir = Path("/app/logs")
+    if not log_dir.is_dir():
+        log_dir = Path("./logs")
+    try:
+        log_dir.mkdir(parents=True, exist_ok=True)
+        fh = logging.FileHandler(log_dir / "telegram-worker.log", encoding="utf-8")
+        fh.setFormatter(fmt)
+        fh.setLevel(level)
+        root.addHandler(fh)
+    except Exception as e:
+        logger.warning("Не удалось открыть файл лога в %s: %s", log_dir, e)
 
 
-log = setup_logging()
-_shutdown = False
+# === ПОЛУЧЕНИЕ ТОКЕНА ===
+
+def _get_token() -> str:
+    token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
+    if not token:
+        raise RuntimeError(
+            "TELEGRAM_BOT_TOKEN не задан. "
+            "Проверь .env (на сервере /opt/ai-sales-robot/.env) "
+            "или переменные окружения контейнера."
+        )
+    return token
 
 
-def _on_signal(signum, frame):  # type: ignore[no-untyped-def]
-    global _shutdown
-    log.info("Received signal %s, shutting down...", signum)
-    _shutdown = True
+# === ОСНОВНОЙ ЦИКЛ ===
+
+async def _run() -> None:
+    """
+    Ленивая инициализация Bot + Dispatcher, polling, корректное завершение.
+    """
+    token = _get_token()
+
+    # Bot создаётся только здесь — импорт main.py на ПК не делает сетевых вызовов
+    bot = Bot(
+        token=token,
+        default=DefaultBotProperties(parse_mode=ParseMode.HTML),
+    )
+    dp = Dispatcher()
+    dp.include_router(operator_router)
+
+    stop_event = asyncio.Event()
+
+    def _signal_handler(signum: int) -> None:
+        logger.info("Получен сигнал %s — останавливаюсь…", signum)
+        stop_event.set()
+
+    loop = asyncio.get_running_loop()
+    for sig_name in ("SIGTERM", "SIGINT"):
+        sig = getattr(signal, sig_name, None)
+        if sig is None:
+            continue
+        try:
+            loop.add_signal_handler(sig, _signal_handler, sig)
+        except (NotImplementedError, RuntimeError):
+            # Windows — add_signal_handler не поддерживается, используем signal.signal
+            try:
+                signal.signal(sig, lambda s, _f: _signal_handler(s))
+            except Exception as e:
+                logger.debug("Не удалось повесить обработчик %s: %s", sig_name, e)
+
+    try:
+        # Warmup: получаем @username, логируем
+        me = await bot.get_me()
+        logger.info(
+            "Бот авторизован: @%s (id=%s, name=%s)",
+            me.username, me.id, me.full_name,
+        )
+
+        # Сбрасываем вебхук и pending updates перед polling
+        try:
+            await bot.delete_webhook(drop_pending_updates=True)
+            logger.info("Webhook сброшен, pending updates очищены.")
+        except Exception as e:
+            logger.warning("delete_webhook не удался (не критично): %s", e)
+
+        logger.info("Запускаю long polling…")
+
+        # Параллельно: polling + ожидание stop_event
+        polling_task = asyncio.create_task(
+            dp.start_polling(bot, handle_signals=False),
+            name="tg-polling",
+        )
+        stop_task = asyncio.create_task(stop_event.wait(), name="tg-stop")
+
+        done, pending = await asyncio.wait(
+            {polling_task, stop_task},
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+
+        # Если polling упал сам — покажем ошибку
+        if polling_task in done and not stop_event.is_set():
+            exc = polling_task.exception()
+            if exc is not None:
+                logger.exception("Polling завершился с ошибкой: %s", exc)
+            else:
+                logger.info("Polling завершился штатно.")
+
+        # Останавливаем polling
+        try:
+            await dp.stop_polling()
+        except Exception as e:
+            logger.warning("stop_polling упал: %s", e)
+
+        for t in pending:
+            t.cancel()
+        for t in pending:
+            try:
+                await t
+            except (asyncio.CancelledError, Exception):
+                pass
+
+    finally:
+        try:
+            await bot.session.close()
+            logger.info("Сессия бота закрыта.")
+        except Exception as e:
+            logger.warning("bot.session.close() упал: %s", e)
+        logger.info("Telegram-worker остановлен.")
 
 
 def main() -> None:
-    signal.signal(signal.SIGTERM, _on_signal)
-    signal.signal(signal.SIGINT, _on_signal)
+    _setup_logging()
+    logger.info("Старт telegram-worker…")
+    try:
+        asyncio.run(_run())
+    except KeyboardInterrupt:
+        logger.info("Прервано с клавиатуры.")
+    except Exception as e:
+        logger.exception("Фатальная ошибка telegram-worker: %s", e)
+        sys.exit(1)
 
-    log.info("telegram-worker started (pid=%s)", os.getpid())
-    if settings.telegram_bot_token:
-        log.info("bot token is set (prefix=%s...)", settings.telegram_bot_token[:8])
-    else:
-        log.warning("TELEGRAM_BOT_TOKEN is NOT set — bot would not start in real mode")
 
-    counter = 0
-    while not _shutdown:
-        counter += 1
-        if counter % 12 == 0:
-            log.debug("telegram-worker alive, tick #%d", counter)
-        time.sleep(5)
-
-    log.info("telegram-worker stopped")
-
+# === ENTRY POINT ===
 
 if __name__ == "__main__":
     main()
