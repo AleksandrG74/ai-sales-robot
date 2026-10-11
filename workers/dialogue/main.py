@@ -162,7 +162,7 @@ def _list_raw_files(raw_dir: Path) -> list:
     except Exception as exc:
         log.warning("os.scandir failed: %s", exc)
 
-    return sorted(raw_dir / n for n in names if not n.startswith("_"))
+    return sorted(raw_dir / n for n in names if not n.startswith("_index") and n.endswith(".json"))
 
 
 def _warmup_embedder() -> None:
