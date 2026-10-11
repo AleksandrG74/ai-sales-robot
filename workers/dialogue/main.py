@@ -189,7 +189,7 @@ async def _scan_once(processed_ids: set[str], run_id: Optional[int],
         log.debug("raw_threads dir не существует: %s", raw_dir)
         return 0
 
-    files = sorted(p for p in raw_dir.glob("*.json") if not p.name.startswith("_"))
+    files = sorted(raw_dir / f for f in os.listdir(raw_dir) if f.endswith(".json") and not f.startswith("_"))
     if not files:
         return 0
 
@@ -254,7 +254,7 @@ async def run_loop() -> None:
                 log.info("scan complete: +%d new dialogues (total=%d)",
                          n, items_counter["total"])
             else:
-                log.debug("scan complete: no new dialogues")
+                log.info("scan complete: no new dialogues")
         except Exception as exc:
             log.exception("scan iteration failed: %s", exc)
 
