@@ -277,6 +277,14 @@ async def run_loop() -> None:
     except Exception as exc:
         log.exception("final snapshot failed: %s", exc)
 
+    log.info("shutdown: exporting CSV metrics...")
+    try:
+        from scripts.export_csv import run_export
+        _meta = run_export()
+        log.info("shutdown: export done, files=%s", list((_meta.get("files") or {}).keys()))
+    except Exception as exc:
+        log.exception("shutdown: export_csv failed: %s", exc)
+
     try:
         llm = get_llm_client()
         await llm.aclose()
