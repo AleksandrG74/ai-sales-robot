@@ -56,3 +56,6 @@ dialogues-miner/sessions/
 dialogues-miner/__pycache__/
 dialogues-miner/**/__pycache__/
 dialogues-miner/.env
+
+# === Exports (результаты прогонов, не коммитим) ===
+exports/
