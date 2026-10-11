@@ -12,6 +12,7 @@ import asyncio
 import logging
 import os
 import signal
+import subprocess
 import sys
 import time
 from datetime import datetime, timezone
@@ -128,7 +129,7 @@ def _update_run_progress(run_id: Optional[int], items: int) -> None:
 # ============================================================
 # Уже обработанные
 # ============================================================
-def _load_processed_ids() -> set[str]:
+def _load_processed_ids() -> set:
     """Возвращает набор dialogue_id из processed_dialogues (status='done')."""
     try:
         with get_session() as s:
@@ -144,6 +145,45 @@ def _load_processed_ids() -> set[str]:
 def _dialogue_id_from_path(path: Path) -> str:
     """dialogue_id = имя файла без .json."""
     return path.stem
+
+
+# ============================================================
+# Сканирование папки (обходит баг overlayfs с readdir)
+# ============================================================
+def _list_raw_files(raw_dir: Path) -> list:
+    """Возвращает список JSON-файлов в raw_dir.
+
+    Собирает имена из двух источников: os.scandir и subprocess ls.
+    Даже если один syscall (readdir) возвращает неполный список,
+    второй компенсирует. Это обходит известный баг overlayfs/bind-mount,
+    при котором Python видит меньше файлов, чем есть на диске.
+    """
+    names: set = set()
+
+    # 1) os.scandir
+    try:
+        with os.scandir(raw_dir) as it:
+            for entry in it:
+                if entry.is_file() and entry.name.endswith(".json"):
+                    names.add(entry.name)
+    except Exception as exc:
+        log.warning("os.scandir failed: %s", exc)
+
+    # 2) subprocess ls — fallback
+    try:
+        out = subprocess.run(
+            ["ls", "-1", str(raw_dir)],
+            capture_output=True, text=True, timeout=15,
+        )
+        if out.returncode == 0:
+            for name in out.stdout.splitlines():
+                name = name.strip()
+                if name.endswith(".json"):
+                    names.add(name)
+    except Exception as exc:
+        log.warning("subprocess ls failed: %s", exc)
+
+    return sorted(raw_dir / n for n in names if not n.startswith("_"))
 
 
 # ============================================================
@@ -181,15 +221,16 @@ def _warmup_llm() -> None:
 # ============================================================
 # Обработка папки
 # ============================================================
-async def _scan_once(processed_ids: set[str], run_id: Optional[int],
-                     items_counter: dict[str, int]) -> int:
+async def _scan_once(processed_ids: set, run_id: Optional[int],
+                     items_counter: dict) -> int:
     """Один проход по raw_threads. Возвращает количество обработанных за проход."""
     raw_dir = settings.raw_threads_dir
     if not raw_dir.exists():
         log.debug("raw_threads dir не существует: %s", raw_dir)
         return 0
 
-    files = sorted(raw_dir / f for f in os.listdir(raw_dir) if f.endswith(".json") and not f.startswith("_"))
+    files = _list_raw_files(raw_dir)
+    log.info("scan: found %d json files in %s", len(files), raw_dir)
     if not files:
         return 0
 
@@ -230,17 +271,14 @@ async def run_loop() -> None:
     log.info("robot_db_path=%s", settings.robot_db_path)
     log.info("sleep_between_scans=%ds", SLEEP_BETWEEN_SCANS)
 
-    # Инициализация БД
     try:
         init_db()
     except Exception as exc:
         log.exception("init_db failed: %s", exc)
 
-    # Прогрев
     _warmup_embedder()
     _warmup_llm()
 
-    # Старт run
     _current_run_id = _start_run()
     items_counter = {"total": 0}
 
@@ -254,24 +292,22 @@ async def run_loop() -> None:
                 log.info("scan complete: +%d new dialogues (total=%d)",
                          n, items_counter["total"])
             else:
-                log.info("scan complete: no new dialogues")
+                log.info("scan complete: no new dialogues (total in db=%d)",
+                         len(processed_ids))
         except Exception as exc:
             log.exception("scan iteration failed: %s", exc)
 
-        # Спим, но прерываемся на shutdown
         for _ in range(SLEEP_BETWEEN_SCANS):
             if _shutdown:
                 break
             await asyncio.sleep(1)
 
-    # Финал
     log.info("shutdown: making final PMI snapshot...")
     try:
         statistics.maybe_snapshot(force=True)
     except Exception as exc:
         log.exception("final snapshot failed: %s", exc)
 
-    # Закрытие ресурсов
     try:
         llm = get_llm_client()
         await llm.aclose()
