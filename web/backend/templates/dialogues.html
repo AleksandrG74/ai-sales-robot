@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}Диалоги — AI Sales Robot{% endblock %}
+
+{% block content %}
+<h1>Диалоги</h1>
+
+<form method="get" action="/dialogues" class="filters">
+    <label>
+        Роль:
+        <select name="role">
+            <option value="">— все —</option>
+            {% for opt in ["curious", "buyer", "skeptic", "seller"] %}
+            <option value="{{ opt }}" {% if role == opt %}selected{% endif %}>{{ opt }}</option>
+            {% endfor %}
+        </select>
+    </label>
+
+    <label>
+        Агрессия:
+        <select name="aggression">
+            <option value="">— все —</option>
+            {% for opt in ["low", "medium", "high"] %}
+            <option value="{{ opt }}" {% if aggression == opt %}selected{% endif %}>{{ opt }}</option>
+            {% endfor %}
+        </select>
+    </label>
+
+    <label>
+        На странице:
+        <select name="limit">
+            {% for opt in [25, 50, 100, 200] %}
+            <option value="{{ opt }}" {% if limit == opt %}selected{% endif %}>{{ opt }}</option>
+            {% endfor %}
+        </select>
+    </label>
+
+    <input type="hidden" name="offset" value="0">
+    <button type="submit">Применить</button>
+    <a class="btn-link" href="/dialogues">Сбросить</a>
+</form>
+
+{% if dialogues %}
+    {% set start = offset + 1 %}
+    {% set end = offset + dialogues|length %}
+    <p class="muted">
+        Показано {{ start }}–{{ end }} из {{ total }}.
+    </p>
+
+    <table class="data wide">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Sender</th>
+                <th>Роль</th>
+                <th>Агрессия</th>
+                <th>Score</th>
+                <th>Cosine</th>
+                <th>Stage</th>
+                <th>Обработан</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for d in dialogues %}
+            <tr>
+                <td><a href="/dialogues/{{ d.dialogue_id }}"><code>{{ d.dialogue_id }}</code></a></td>
+                <td>{{ d.sender or "—" }}</td>
+                <td>
+                    {% if d.role %}
+                    <span class="badge badge-role-{{ d.role }}">{{ d.role }}</span>
+                    {% else %}—{% endif %}
+                </td>
+                <td>
+                    {% if d.aggression_level %}
+                    <span class="badge badge-agg-{{ d.aggression_level }}">{{ d.aggression_level }}</span>
+                    {% else %}—{% endif %}
+                </td>
+                <td>
+                    {% if d.score is not none %}{{ "%.4f"|format(d.score) }}{% else %}—{% endif %}
+                </td>
+                <td>
+                    {% if d.cosine is not none %}{{ "%.4f"|format(d.cosine) }}{% else %}—{% endif %}
+                </td>
+                <td>{{ d.stage_before or d.stage or "—" }}</td>
+                <td>{{ d.processed_at or "—" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <nav class="pagination">
+        {% set base_q = "" %}
+        {% if role %}{% set base_q = base_q + "&role=" + role %}{% endif %}
+        {% if aggression %}{% set base_q = base_q + "&aggression=" + aggression %}{% endif %}
+
+        {% if offset > 0 %}
+            {% set prev_off = offset - limit if offset - limit > 0 else 0 %}
+            <a href="/dialogues?limit={{ limit }}&offset={{ prev_off }}{{ base_q }}">← Предыдущие {{ limit }}</a>
+        {% else %}
+            <span class="disabled">← Предыдущие {{ limit }}</span>
+        {% endif %}
+
+        <span class="page-info">{{ start }}–{{ end }} из {{ total }}</span>
+
+        {% if end < total %}
+            {% set next_off = offset + limit %}
+            <a href="/dialogues?limit={{ limit }}&offset={{ next_off }}{{ base_q }}">Следующие {{ limit }} →</a>
+        {% else %}
+            <span class="disabled">Следующие {{ limit }} →</span>
+        {% endif %}
+    </nav>
+{% else %}
+    <p class="muted">Ничего не найдено.</p>
+{% endif %}
+{% endblock %}
