@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}Дашборд — AI Sales Robot{% endblock %}
+
+{% block content %}
+<h1>Дашборд</h1>
+
+<section class="cards">
+    <div class="card">
+        <div class="card-label">Диалогов обработано</div>
+        <div class="card-value">{{ status.dialogue_count }}</div>
+    </div>
+    <div class="card">
+        <div class="card-label">Стратегий</div>
+        <div class="card-value">{{ status.strategy_count }}</div>
+        <div class="card-sub">активных: {{ status.active_strategies }}</div>
+    </div>
+    <div class="card">
+        <div class="card-label">Версий</div>
+        <div class="card-value">{{ status.version_count }}</div>
+    </div>
+    <div class="card">
+        <div class="card-label">Live-чатов</div>
+        <div class="card-value">{{ chats_total }}</div>
+        <div class="card-sub">
+            непрочитанных: <strong>{{ unread }}</strong>
+        </div>
+    </div>
+</section>
+
+<section class="grid-2">
+    <div class="panel">
+        <h2>Метрики качества</h2>
+        <table class="kv">
+            <tr><th>Всего с результатом</th><td>{{ stats.with_result }} / {{ stats.total }}</td></tr>
+            <tr><th>Avg score</th><td>{{ "%.4f"|format(stats.avg_score) }}</td></tr>
+            <tr><th>Avg cosine</th><td>{{ "%.4f"|format(stats.avg_cosine) }}</td></tr>
+        </table>
+
+        {% if stats.roles %}
+        <h3>Роли</h3>
+        <table class="data">
+            <thead><tr><th>Роль</th><th>Кол-во</th></tr></thead>
+            <tbody>
+                {% for role, cnt in stats.roles.items() %}
+                <tr><td>{{ role }}</td><td>{{ cnt }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+
+        {% if stats.aggression %}
+        <h3>Агрессия</h3>
+        <table class="data">
+            <thead><tr><th>Уровень</th><th>Кол-во</th></tr></thead>
+            <tbody>
+                {% for lvl, cnt in stats.aggression.items() %}
+                <tr><td>{{ lvl }}</td><td>{{ cnt }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+    </div>
+
+    <div class="panel">
+        <h2>Последний прогон</h2>
+        {% if status.last_run %}
+        <table class="kv">
+            <tr><th>ID</th><td>{{ status.last_run.id }}</td></tr>
+            <tr><th>Тип</th><td>{{ status.last_run.run_type }}</td></tr>
+            <tr><th>Статус</th><td>
+                <span class="badge badge-{{ status.last_run.status }}">{{ status.last_run.status }}</span>
+            </td></tr>
+            <tr><th>Старт</th><td>{{ status.last_run.started_at or "—" }}</td></tr>
+            <tr><th>Финиш</th><td>{{ status.last_run.finished_at or "—" }}</td></tr>
+            <tr><th>Обработано</th><td>{{ status.last_run.items_processed }}</td></tr>
+            {% if status.last_run.error_text %}
+            <tr><th>Ошибка</th><td class="error">{{ status.last_run.error_text }}</td></tr>
+            {% endif %}
+        </table>
+        {% else %}
+        <p class="muted">Прогонов пока не было.</p>
+        {% endif %}
+
+        <h3>Последние 5 прогонов</h3>
+        {% if runs %}
+        <table class="data">
+            <thead><tr><th>ID</th><th>Тип</th><th>Статус</th><th>Обработано</th></tr></thead>
+            <tbody>
+                {% for r in runs %}
+                <tr>
+                    <td>{{ r.id }}</td>
+                    <td>{{ r.run_type }}</td>
+                    <td><span class="badge badge-{{ r.status }}">{{ r.status }}</span></td>
+                    <td>{{ r.items_processed }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="muted">Нет данных.</p>
+        {% endif %}
+    </div>
+</section>
+
+<section class="panel">
+    <h2>Быстрые ссылки</h2>
+    <ul class="quick-links">
+        <li><a href="/dialogues">Все диалоги →</a></li>
+        <li><a href="/live">Live-чаты ({{ unread }} непрочитанных) →</a></li>
+        <li><a href="/strategies">Стратегии и версии →</a></li>
+        <li><a href="/bridges">Мосты →</a></li>
+        <li><a href="/words">Токены →</a></li>
+        <li><a href="/runs">Прогоны →</a></li>
+        <li><a href="/config">Конфиг (product / goal) →</a></li>
+        <li><a href="/docs">REST API (OpenAPI) →</a></li>
+    </ul>
+</section>
+{% endblock %}
