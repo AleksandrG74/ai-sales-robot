@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block title %}Стратегии — AI Sales Robot{% endblock %}
+
+{% block content %}
+<h1>Стратегии ({{ strategies|length }})</h1>
+
+{% if strategies %}
+<table class="data wide">
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Название</th>
+            <th>token_group</th>
+            <th>role</th>
+            <th>aggression</th>
+            <th>active_version_id</th>
+            <th>weight</th>
+            <th>версий</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for s in strategies %}
+        <tr>
+            <td>{{ s.id }}</td>
+            <td><strong>{{ s.name or "—" }}</strong></td>
+            <td>{{ s.token_group or "—" }}</td>
+            <td>
+                {% if s.role %}
+                <span class="badge badge-role-{{ s.role }}">{{ s.role }}</span>
+                {% else %}—{% endif %}
+            </td>
+            <td>
+                {% if s.aggression_level %}
+                <span class="badge badge-agg-{{ s.aggression_level }}">{{ s.aggression_level }}</span>
+                {% else %}—{% endif %}
+            </td>
+            <td>{{ s.active_version_id or "—" }}</td>
+            <td>
+                {% if s.current_weight is not none %}{{ "%.4f"|format(s.current_weight) }}{% else %}—{% endif %}
+            </td>
+            <td>{{ versions_by_strategy.get(s.id, [])|length }}</td>
+            <td>
+                <details>
+                    <summary class="btn-link">Версии</summary>
+
+                    {% set vlist = versions_by_strategy.get(s.id, []) %}
+                    {% if vlist %}
+                    <table class="data nested">
+                        <thead>
+                            <tr>
+                                <th>v</th>
+                                <th>is_active</th>
+                                <th>avg_score</th>
+                                <th>avg_cosine</th>
+                                <th>created_by</th>
+                                <th>комментарий</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for v in vlist %}
+                            {% set is_active = (v.id == s.active_version_id) %}
+                            {% set metrics = v.metrics or {} %}
+                            <tr {% if is_active %}class="row-active"{% endif %}>
+                                <td><strong>v{{ v.version }}</strong></td>
+                                <td>
+                                    {% if is_active %}
+                                        <span class="badge badge-ok">active</span>
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if metrics.get('avg_score') is not none %}
+                                        {{ "%.4f"|format(metrics.get('avg_score')) }}
+                                    {% else %}—{% endif %}
+                                </td>
+                                <td>
+                                    {% if metrics.get('avg_cosine') is not none %}
+                                        {{ "%.4f"|format(metrics.get('avg_cosine')) }}
+                                    {% else %}—{% endif %}
+                                </td>
+                                <td>{{ v.created_by or "—" }}</td>
+                                <td class="muted">{{ (v.comment or "—")[:80] }}</td>
+                                <td>
+                                    {% if not is_active %}
+                                    <button type="button"
+                                            class="btn-rollback"
+                                            data-strategy-id="{{ s.id }}"
+                                            data-version="{{ v.version }}"
+                                            data-label="#{{ s.id }} v{{ v.version }}">Откатить</button>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <p class="muted">Версий нет.</p>
+                    {% endif %}
+                </details>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p class="muted">Стратегий нет.</p>
+{% endif %}
+
+<script>
+async function doRollback(strategyId, version, label) {
+    if (!confirm("Откатить " + label + "?")) return;
+    try {
+        const resp = await fetch(`/api/strategies/${strategyId}/rollback`, {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({version: version}),
+        });
+        if (!resp.ok) {
+            const err = await resp.text();
+            alert("Ошибка отката: " + resp.status + "\n" + err);
+            return;
+        }
+        const data = await resp.json();
+        alert("OK: active_version_id = " + data.active_version_id);
+        location.reload();
+    } catch (e) {
+        alert("Сеть/JS: " + e);
+    }
+}
+
+document.addEventListener("click", (e) => {
+    const btn = e.target.closest(".btn-rollback");
+    if (!btn) return;
+    e.preventDefault();
+    const sid = parseInt(btn.dataset.strategyId, 10);
+    const ver = parseInt(btn.dataset.version, 10);
+    const lbl = btn.dataset.label || `${sid} v${ver}`;
+    doRollback(sid, ver, lbl);
+});
+</script>
+{% endblock %}

@@ -140,10 +140,25 @@ def page_dialogue(request: Request, dialogue_id: str) -> HTMLResponse:
 def page_strategies(request: Request) -> HTMLResponse:
     try:
         strategies = q.get_strategies()
+        # Собираем версии по каждой стратегии (SQLite — мгновенно).
+        versions_by_strategy: dict = {}
+        for s in strategies:
+            sid = s.get("id")
+            if sid is None:
+                continue
+            try:
+                versions_by_strategy[sid] = q.get_versions(int(sid))
+            except Exception as ve:
+                logger.warning("get_versions(%s) упал: %s", sid, ve)
+                versions_by_strategy[sid] = []
     except Exception as e:
         logger.exception("/strategies упал: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
-    return _render(request, "strategies.html", strategies=strategies)
+    return _render(
+        request, "strategies.html",
+        strategies=strategies,
+        versions_by_strategy=versions_by_strategy,
+    )
 
 
 # === BRIDGES ===
