@@ -153,37 +153,40 @@ def _dialogue_id_from_path(path: Path) -> str:
 def _list_raw_files(raw_dir: Path) -> list:
     """Возвращает список JSON-файлов в raw_dir.
 
-    Собирает имена из двух источников: os.scandir и subprocess ls.
-    Даже если один syscall (readdir) возвращает неполный список,
-    второй компенсирует. Это обходит известный баг overlayfs/bind-mount,
-    при котором Python видит меньше файлов, чем есть на диске.
+    Использует subprocess find как основной источник — это обходит
+    известный баг overlayfs/bind-mount, при котором долгоживущий
+    Python-процесс видит устаревший снимок директории (readdir cache),
+    и часть файлов остаётся невидимой.
     """
-    names: set = set()
+    names = set()
 
-    # 1) os.scandir
+    # 1) find через subprocess — свежие данные, новый процесс каждый вызов
+    try:
+        out = subprocess.run(
+            ['find', str(raw_dir), '-maxdepth', '1', '-name', '*.json', '-type', 'f'],
+            capture_output=True, text=True, timeout=30,
+        )
+        if out.returncode == 0:
+            for line in out.stdout.splitlines():
+                line = line.strip()
+                if line:
+                    name = os.path.basename(line)
+                    if name.endswith('.json'):
+                        names.add(name)
+    except Exception as exc:
+        log.warning('subprocess find failed: %s', exc)
+
+    # 2) os.scandir — как дополнительный источник
     try:
         with os.scandir(raw_dir) as it:
             for entry in it:
-                if entry.is_file() and entry.name.endswith(".json"):
+                if entry.is_file() and entry.name.endswith('.json'):
                     names.add(entry.name)
     except Exception as exc:
-        log.warning("os.scandir failed: %s", exc)
+        log.warning('os.scandir failed: %s', exc)
 
-    # 2) subprocess ls — fallback
-    try:
-        out = subprocess.run(
-            ["ls", "-1", str(raw_dir)],
-            capture_output=True, text=True, timeout=15,
-        )
-        if out.returncode == 0:
-            for name in out.stdout.splitlines():
-                name = name.strip()
-                if name.endswith(".json"):
-                    names.add(name)
-    except Exception as exc:
-        log.warning("subprocess ls failed: %s", exc)
+    return sorted(raw_dir / n for n in names if not n.startswith('_'))
 
-    return sorted(raw_dir / n for n in names if not n.startswith("_"))
 
 
 # ============================================================
