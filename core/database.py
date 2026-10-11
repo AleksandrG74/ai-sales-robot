@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from typing import Any, Generator, Optional
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     DateTime,
     Float,
@@ -283,6 +284,87 @@ def get_session() -> Generator[Session, None, None]:
         raise
     finally:
         session.close()
+
+
+class MonitoredChat(Base):
+    """
+    Чаты, которые слушает live-worker (Telegram user-account).
+    Один чат = одна запись. chat_id — Telegram chat_id (BIGINT).
+    """
+    __tablename__ = "monitored_chats"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    chat_id: Mapped[int] = mapped_column(BigInteger, unique=True, nullable=False, index=True)
+    chat_title: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    chat_type: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+    enabled: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    auto_reply: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    last_message_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    added_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, default=_utcnow)
+    added_by: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+
+    def __repr__(self) -> str:
+        return f"<MonitoredChat(chat_id={self.chat_id}, title={self.chat_title!r}, enabled={self.enabled})>"
+
+
+class LiveMessage(Base):
+    """
+    Живые сообщения из monitored_chats.
+    UNIQUE(chat_id, message_id) — защита от дублей.
+    """
+    __tablename__ = "live_messages"
+    __table_args__ = (
+        Index("ix_live_messages_chat_sent", "chat_id", "sent_at"),
+        Index("ix_live_messages_unread", "read_by_operator", "chat_id"),
+        UniqueConstraint("chat_id", "message_id", name="uq_live_messages_chat_msg"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    chat_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
+    message_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+
+    author_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    author_username: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    author_first_name: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+
+    text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    is_outgoing: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    reply_to_msg_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+
+    sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, index=True)
+    imported_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, default=_utcnow)
+
+    read_by_operator: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    llm_suggestion: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    llm_suggested_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
+    operator_reply: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    operator_replied_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
+    def __repr__(self) -> str:
+        return (
+            f"<LiveMessage(chat_id={self.chat_id}, msg_id={self.message_id}, "
+            f"out={self.is_outgoing}, read={self.read_by_operator})>"
+        )
+
+
+class LiveSession(Base):
+    """
+    Журнал работы live-worker: один запуск = одна запись.
+    """
+    __tablename__ = "live_sessions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    started_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, default=_utcnow)
+    stopped_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    status: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+    messages_received: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    messages_sent: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    error_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    def __repr__(self) -> str:
+        return f"<LiveSession(id={self.id}, status={self.status}, started={self.started_at})>"
 
 
 def init_db() -> None:
