@@ -59,6 +59,11 @@ SERVICES: List[Dict[str, object]] = [
         "cwd": str(BASE_DIR),
     },
     {
+        "name": "live-worker",
+        "cmd": ["python", "-u", "-m", "workers.live.main"],
+        "cwd": str(BASE_DIR),
+    },
+    {
         "name": "telegram-worker",
         "cmd": ["python", "-u", "-m", "workers.telegram.main"],
         "cwd": str(BASE_DIR),
