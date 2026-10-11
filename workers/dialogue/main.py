@@ -1,14 +1,8 @@
-"""dialogue-worker: цикл обработки JSON-тредов.
-
-Сканирует data/raw_threads/*.json, обрабатывает каждый тред через
-agent.process_dialogue, пишет processed_dialogues и runs.
-
-Обрабатывает SIGTERM/SIGINT: делает финальный PMI-снапшот, закрывает
-ресурсы, ставит runs.finished_at.
-"""
+"""dialogue-worker: цикл обработки JSON-тредов."""
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 import signal
@@ -27,9 +21,6 @@ from core.llm import get_llm_client
 from workers.dialogue import statistics
 from workers.dialogue.agent import process_file
 
-# ============================================================
-# Настройки
-# ============================================================
 LOG_FILE = settings.logs_dir / "dialogue-worker.log"
 LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
 
@@ -37,9 +28,6 @@ SLEEP_BETWEEN_SCANS = int(os.getenv("DIALOGUE_WORKER_SLEEP", "30"))
 WARMUP_LLM = os.getenv("DIALOGUE_WORKER_WARMUP_LLM", "1") == "1"
 
 
-# ============================================================
-# Логирование
-# ============================================================
 def setup_logging() -> logging.Logger:
     logger = logging.getLogger("dialogue-worker")
     logger.setLevel(settings.log_level.upper())
@@ -60,11 +48,6 @@ def setup_logging() -> logging.Logger:
 
 
 log = setup_logging()
-
-
-# ============================================================
-# Глобальные флаги
-# ============================================================
 _shutdown = False
 _current_run_id: Optional[int] = None
 
@@ -75,9 +58,6 @@ def _on_signal(signum, frame):  # type: ignore[no-untyped-def]
     _shutdown = True
 
 
-# ============================================================
-# runs
-# ============================================================
 def _start_run() -> Optional[int]:
     try:
         with get_session() as s:
@@ -126,11 +106,7 @@ def _update_run_progress(run_id: Optional[int], items: int) -> None:
         log.exception("Failed to update run %s: %s", run_id, exc)
 
 
-# ============================================================
-# Уже обработанные
-# ============================================================
 def _load_processed_ids() -> set:
-    """Возвращает набор dialogue_id из processed_dialogues (status='done')."""
     try:
         with get_session() as s:
             rows = s.query(ProcessedDialogue.dialogue_id).filter(
@@ -143,27 +119,29 @@ def _load_processed_ids() -> set:
 
 
 def _dialogue_id_from_path(path: Path) -> str:
-    """dialogue_id = имя файла без .json."""
     return path.stem
 
 
-# ============================================================
-# Сканирование папки (обходит баг overlayfs с readdir)
-# ============================================================
 def _list_raw_files(raw_dir: Path) -> list:
-    """Возвращает список JSON-файлов в raw_dir.
-
-    Использует subprocess find как основной источник — это обходит
-    известный баг overlayfs/bind-mount, при котором долгоживущий
-    Python-процесс видит устаревший снимок директории (readdir cache),
-    и часть файлов остаётся невидимой.
-    """
+    """Читает список файлов из _index.json (обход бага overlayfs readdir)."""
     names = set()
 
-    # 1) find через subprocess — свежие данные, новый процесс каждый вызов
+    index_path = raw_dir / "_index.json"
+    if index_path.exists():
+        try:
+            data = json.loads(index_path.read_text(encoding="utf-8"))
+            for item in data.get("dialogues", []):
+                fname = item.get("file")
+                if fname and fname.endswith(".json"):
+                    names.add(fname)
+            if names:
+                log.info("_list_raw_files: read %d names from _index.json", len(names))
+        except Exception as exc:
+            log.warning("_index.json read failed: %s", exc)
+
     try:
         out = subprocess.run(
-            ['find', str(raw_dir), '-maxdepth', '1', '-name', '*.json', '-type', 'f'],
+            ["find", str(raw_dir), "-maxdepth", "1", "-name", "*.json", "-type", "f"],
             capture_output=True, text=True, timeout=30,
         )
         if out.returncode == 0:
@@ -171,27 +149,22 @@ def _list_raw_files(raw_dir: Path) -> list:
                 line = line.strip()
                 if line:
                     name = os.path.basename(line)
-                    if name.endswith('.json'):
+                    if name.endswith(".json"):
                         names.add(name)
     except Exception as exc:
-        log.warning('subprocess find failed: %s', exc)
+        log.warning("subprocess find failed: %s", exc)
 
-    # 2) os.scandir — как дополнительный источник
     try:
         with os.scandir(raw_dir) as it:
             for entry in it:
-                if entry.is_file() and entry.name.endswith('.json'):
+                if entry.is_file() and entry.name.endswith(".json"):
                     names.add(entry.name)
     except Exception as exc:
-        log.warning('os.scandir failed: %s', exc)
+        log.warning("os.scandir failed: %s", exc)
 
-    return sorted(raw_dir / n for n in names if not n.startswith('_'))
+    return sorted(raw_dir / n for n in names if not n.startswith("_"))
 
 
-
-# ============================================================
-# Warmup
-# ============================================================
 def _warmup_embedder() -> None:
     log.info("Warming up Embedder...")
     try:
@@ -218,15 +191,11 @@ def _warmup_llm() -> None:
         log.info("LLM ready in %.2fs (model=%s, reply=%r)",
                  time.perf_counter() - t0, resp.model, resp.text[:30])
     except Exception as exc:
-        log.exception("LLM warmup failed (это не критично): %s", exc)
+        log.exception("LLM warmup failed: %s", exc)
 
 
-# ============================================================
-# Обработка папки
-# ============================================================
 async def _scan_once(processed_ids: set, run_id: Optional[int],
                      items_counter: dict) -> int:
-    """Один проход по raw_threads. Возвращает количество обработанных за проход."""
     raw_dir = settings.raw_threads_dir
     if not raw_dir.exists():
         log.debug("raw_threads dir не существует: %s", raw_dir)
@@ -263,9 +232,6 @@ async def _scan_once(processed_ids: set, run_id: Optional[int],
     return processed_this_run
 
 
-# ============================================================
-# Главный цикл
-# ============================================================
 async def run_loop() -> None:
     global _current_run_id
 
@@ -321,9 +287,6 @@ async def run_loop() -> None:
     log.info("dialogue-worker stopped (total items=%d)", items_counter["total"])
 
 
-# ============================================================
-# Точка входа
-# ============================================================
 def main() -> None:
     signal.signal(signal.SIGTERM, _on_signal)
     signal.signal(signal.SIGINT, _on_signal)
