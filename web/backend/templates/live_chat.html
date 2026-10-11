@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+{% block title %}{{ chat.chat_title or ("chat " ~ chat.chat_id) }} — Live{% endblock %}
+
+{% block content %}
+<nav class="breadcrumbs">
+    <a href="/live">← Live-чаты</a>
+    <span class="sep">/</span>
+    <span>{{ chat.chat_title or ("chat " ~ chat.chat_id) }}</span>
+</nav>
+
+<div class="page-head">
+    <h1>
+        {{ chat.chat_title or ("chat " ~ chat.chat_id) }}
+        {% if chat.enabled %}
+            <span class="badge badge-ok">вкл</span>
+        {% else %}
+            <span class="badge badge-error">выкл</span>
+        {% endif %}
+        {% if chat.auto_reply %}
+            <span class="badge badge-ok">auto-reply</span>
+        {% endif %}
+    </h1>
+    <div class="muted small">
+        <code>{{ chat.chat_id }}</code>
+        {% if chat.chat_type %} · {{ chat.chat_type }}{% endif %}
+        {% if chat.last_message_at %} · последнее: {{ chat.last_message_at }}{% endif %}
+    </div>
+</div>
+
+<section class="chat-messages" id="messages">
+    {% if messages %}
+        {% for m in messages %}
+            {% if m.is_outgoing %}
+            <div class="msg msg-out" data-message-id="{{ m.message_id }}">
+                <div class="msg-meta">
+                    <span class="msg-author">Мы</span>
+                    <span class="msg-time">{{ m.sent_at or "" }}</span>
+                </div>
+                <div class="msg-text">{{ m.text }}</div>
+            </div>
+            {% else %}
+            <div class="msg msg-in" data-message-id="{{ m.message_id }}">
+                <div class="msg-meta">
+                    <span class="msg-author">
+                        {{ m.author_first_name or m.author_username or ("id " ~ (m.author_id or "?")) }}
+                    </span>
+                    <span class="msg-time">{{ m.sent_at or "" }}</span>
+                </div>
+                <div class="msg-text">{{ m.text }}</div>
+
+                {% if m.llm_suggestion and not m.operator_reply %}
+                <div class="msg-suggestion">
+                    <div class="msg-suggestion-head">💡 LLM-подсказка</div>
+                    <div class="msg-suggestion-body" data-suggestion-for="{{ m.message_id }}">{{ m.llm_suggestion }}</div>
+                    <button type="button" class="btn-link use-suggestion" data-message-id="{{ m.message_id }}">Использовать</button>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+        {% endfor %}
+    {% else %}
+        <p class="muted">Сообщений пока нет.</p>
+    {% endif %}
+</section>
+
+<section class="chat-reply panel">
+    <h2>Ответ</h2>
+
+    <form method="post"
+          action="/api/live/chats/{{ chat.chat_id }}/send"
+          id="reply-form"
+          onsubmit="return sendViaFetch(event);">
+        <input type="hidden" name="reply_to" id="reply-to-field" value="{{ reply_to_default or '' }}">
+
+        <textarea id="reply-text"
+                  name="text"
+                  rows="4"
+                  class="reply-textarea"
+                  placeholder="Ваш ответ…">{{ operator_reply_draft or '' }}</textarea>
+
+        <div class="reply-actions">
+            <button type="submit" class="btn btn-primary" id="btn-send">Отправить</button>
+            <button type="button" class="btn" id="btn-suggest">💡 Сгенерировать LLM-подсказку</button>
+            <span class="muted small" id="reply-status"></span>
+        </div>
+    </form>
+</section>
+
+<script>
+(function () {
+    const chatId = {{ chat.chat_id }};
+    const ta = document.getElementById("reply-text");
+    const statusEl = document.getElementById("reply-status");
+    const btnSuggest = document.getElementById("btn-suggest");
+    const replyToField = document.getElementById("reply-to-field");
+
+    // «Использовать» подсказку — подставить в textarea и запомнить message_id
+    document.querySelectorAll(".use-suggestion").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+            e.preventDefault();
+            const mid = btn.dataset.messageId;
+            const box = document.querySelector(`.msg-suggestion-body[data-suggestion-for="${mid}"]`);
+            if (!box || !ta) return;
+            ta.value = box.textContent.trim();
+            if (replyToField) replyToField.value = mid;
+            ta.focus();
+        });
+    });
+
+    // Сгенерировать LLM-подсказку для последнего входящего сообщения
+    if (btnSuggest) {
+        btnSuggest.addEventListener("click", async () => {
+            // Найдём последний входящий (не is_outgoing)
+            const incoming = document.querySelectorAll(".msg.msg-in");
+            if (incoming.length === 0) {
+                statusEl.textContent = "Нет входящих сообщений.";
+                return;
+            }
+            const lastIn = incoming[incoming.length - 1];
+            const mid = parseInt(lastIn.dataset.messageId, 10);
+
+            btnSuggest.disabled = true;
+            statusEl.textContent = "Генерирую подсказку…";
+
+            try {
+                const resp = await fetch(
+                    `/api/live/chats/${chatId}/suggest?message_id=${mid}`,
+                    {method: "POST", headers: {"Content-Type": "application/json"}}
+                );
+                if (!resp.ok) {
+                    const t = await resp.text();
+                    statusEl.textContent = "Ошибка: " + resp.status + " " + t.slice(0, 200);
+                    return;
+                }
+                const data = await resp.json();
+                if (data && data.suggestion) {
+                    ta.value = data.suggestion;
+                    if (replyToField) replyToField.value = mid;
+                    statusEl.textContent = "Подсказка вставлена (msg_id=" + mid + ").";
+                    ta.focus();
+                } else {
+                    statusEl.textContent = "Пустая подсказка.";
+                }
+            } catch (e) {
+                statusEl.textContent = "Сеть/JS: " + e;
+            } finally {
+                btnSuggest.disabled = false;
+            }
+        });
+    }
+})();
+
+async function sendViaFetch(ev) {
+    ev.preventDefault();
+    const form = ev.target;
+    const ta = document.getElementById("reply-text");
+    const statusEl = document.getElementById("reply-status");
+    const btnSend = document.getElementById("btn-send");
+    const replyToField = document.getElementById("reply-to-field");
+
+    const text = (ta.value || "").trim();
+    if (!text) {
+        statusEl.textContent = "Пустой текст.";
+        return false;
+    }
+
+    btnSend.disabled = true;
+    statusEl.textContent = "Отправляю…";
+
+    const body = {text: text};
+    if (replyToField && replyToField.value) {
+        const rt = parseInt(replyToField.value, 10);
+        if (!isNaN(rt) && rt > 0) body.reply_to = rt;
+    }
+
+    try {
+        const resp = await fetch(form.action, {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify(body),
+        });
+        if (!resp.ok) {
+            const t = await resp.text();
+            statusEl.textContent = "Ошибка: " + resp.status + " " + t.slice(0, 300);
+            return false;
+        }
+        const data = await resp.json();
+        statusEl.textContent = "Отправлено (msg_id=" + (data.message_id || "?") + "). Обновляю…";
+        ta.value = "";
+        setTimeout(() => location.reload(), 500);
+    } catch (e) {
+        statusEl.textContent = "Сеть/JS: " + e;
+    } finally {
+        btnSend.disabled = false;
+    }
+    return false;
+}
+</script>
+{% endblock %}
