@@ -16,13 +16,10 @@ services:
     image: ai-sales-robot:latest
     container_name: ai_sales_robot
     restart: unless-stopped
-    depends_on:
-      ai-sales-robot-base:
-        condition: service_completed_successfully
     env_file:
       - .env
     ports:
-      - "8000:8000"
+      - "8080:8000"
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs
