@@ -101,8 +101,8 @@ async def _run() -> None:
     
     dp = Dispatcher()
     # Регистрируем оба роутера: базовый (commands) и live-management (FSM)
-    dp.include_router(operator_router)
     dp.include_router(router_live)
+    dp.include_router(operator_router)
 
     stop_event = asyncio.Event()
 
