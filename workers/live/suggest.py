@@ -40,20 +40,20 @@ def _get_chat_history(chat_id: int, limit: int = HISTORY_LIMIT) -> list[dict]:
                 .limit(limit)
             ).scalars().all()
 
-        rows = list(reversed(rows))
-        out: list[dict] = []
-        for r in rows:
-            text = (r.text or "").strip()
-            if not text:
-                continue
-            out.append({
-                "message_id": r.message_id,
-                "text": text,
-                "is_outgoing": int(r.is_outgoing or 0),
-                "author_first_name": r.author_first_name,
-                "author_username": r.author_username,
-                "sent_at": r.sent_at.isoformat() if r.sent_at else None,
-            })
+            out: list[dict] = []
+            # Разворачиваем хронологически (свежие были первыми)
+            for r in reversed(rows):
+                text = (r.text or "").strip()
+                if not text:
+                    continue
+                out.append({
+                    "message_id": r.message_id,
+                    "text": text,
+                    "is_outgoing": int(r.is_outgoing or 0),
+                    "author_first_name": r.author_first_name,
+                    "author_username": r.author_username,
+                    "sent_at": r.sent_at.isoformat() if r.sent_at else None,
+                })
         return out
     except Exception as e:
         logger.exception("_get_chat_history(%s) упал: %s", chat_id, e)
