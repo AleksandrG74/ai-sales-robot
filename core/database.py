@@ -299,6 +299,7 @@ class MonitoredChat(Base):
     chat_type: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
     enabled: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     auto_reply: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    keywords: Mapped[Optional[list]] = mapped_column(JSON, nullable=True, default=list)
     last_message_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     added_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, default=_utcnow)
     added_by: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
