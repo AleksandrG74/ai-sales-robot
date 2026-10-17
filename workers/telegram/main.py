@@ -24,7 +24,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 
-from workers.telegram.handlers import router as operator_router
+from workers.telegram.handlers import router as operator_router, router_live
 
 logger = logging.getLogger("telegram-worker")
 
@@ -98,6 +98,7 @@ async def _run() -> None:
     )
     dp = Dispatcher()
     dp.include_router(operator_router)
+    dp.include_router(router_live)
 
     stop_event = asyncio.Event()
 

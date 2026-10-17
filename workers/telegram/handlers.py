@@ -11,6 +11,8 @@ import os
 from typing import Optional
 
 from aiogram import F, Router
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
 from aiogram.filters import Command, CommandObject
 from aiogram.types import CallbackQuery, FSInputFile, Message
 
@@ -676,3 +678,191 @@ async def fallback_cb(cb: CallbackQuery) -> None:
         await _deny(cb)
         return
     await cb.answer("Неизвестное действие", show_alert=False)
+
+
+# ============================================================
+# ЭТАП 8.5 — LIVE / MONITOR / KEYWORDS
+# ============================================================
+
+class MonitorStates(StatesGroup):
+    waiting_for_forward = State()
+
+
+router_live = Router(name="live_management")
+
+
+@router_live.message(Command("live"))
+async def cmd_live(message: Message) -> None:
+    if not _is_allowed(message):
+        return
+    try:
+        from web.backend import queries as wq
+        msgs = wq.get_live_messages(chat_id=None, limit=10, offset=0) # fallback
+    except Exception:
+        pass
+
+    try:
+        from core.database import get_session, LiveMessage, MonitoredChat
+        from sqlalchemy import select, desc
+        with get_session() as session:
+            rows = session.execute(
+                select(LiveMessage)
+                .where(LiveMessage.is_outgoing == 0)
+                .order_by(desc(LiveMessage.sent_at), desc(LiveMessage.id))
+                .limit(10)
+            ).scalars().all()
+
+            if not rows:
+                await message.answer("Нет входящих сообщений.")
+                return
+
+            lines = ["<b>💬 Последние 10 live-сообщений:</b>", ""]
+            for r in rows:
+                mc = session.execute(select(MonitoredChat).where(MonitoredChat.chat_id == r.chat_id).limit(1)).scalar_one_or_none()
+                title = mc.chat_title if mc else str(r.chat_id)
+                text = (r.text or "")[:80].replace("\n", " ")
+                lines.append(f"<b>{title}</b> (<code>{r.chat_id}</code>): {text}")
+            
+            await message.answer("\n".join(lines))
+    except Exception as e:
+        logger.exception("/live упал: %s", e)
+        await message.answer(fmt.format_error(str(e)))
+
+
+@router_live.message(Command("monitor"))
+async def cmd_monitor(message: Message, state: FSMContext) -> None:
+    if not _is_allowed(message):
+        return
+    await state.set_state(MonitorStates.waiting_for_forward)
+    await message.answer(
+        "Перешли мне любое сообщение из чата, который нужно добавить в мониторинг."
+    )
+
+
+@router_live.message(MonitorStates.waiting_for_forward)
+async def process_forward(message: Message, state: FSMContext) -> None:
+    if not _is_allowed(message):
+        return
+    
+    # Получаем origin чата (в aiogram 3.x используется forward_origin)
+    origin = getattr(message, "forward_origin", None)
+    if not origin:
+        await message.answer("Пожалуйста, перешли именно сообщение из чата.")
+        return
+
+    chat = getattr(origin, "chat", None) or getattr(origin, "sender_chat", None)
+    if not chat:
+        await message.answer("Не удалось определить чат из пересланного сообщения.")
+        return
+
+    chat_id = chat.id
+    title = getattr(chat, "title", None) or getattr(chat, "first_name", "Без названия")
+
+    try:
+        from workers.live import monitor as live_mon
+        res = live_mon.add_chat(chat_id=chat_id, title=title)
+        await state.clear()
+        if res:
+            await message.answer(f"✅ Чат <b>{title}</b> (<code>{chat_id}</code>) добавлен в мониторинг.")
+        else:
+            await message.answer(f"❌ Не удалось добавить чат.")
+    except Exception as e:
+        logger.exception("monitor добавление упало: %s", e)
+        await message.answer(fmt.format_error(str(e)))
+        await state.clear()
+
+
+@router_live.message(Command("unmonitor"))
+async def cmd_unmonitor(message: Message, command: CommandObject) -> None:
+    if not _is_allowed(message):
+        return
+    args = (command.args or "").strip().split()
+    if not args:
+        await message.answer("Использование: /unmonitor &lt;chat_id&gt;")
+        return
+    try:
+        cid = int(args[0])
+        from workers.live import monitor as live_mon
+        live_mon.remove_chat(cid)
+        await message.answer(f"🗑 Чат <code>{cid}</code> удалён из мониторинга.")
+    except ValueError:
+        await message.answer(fmt.format_error("chat_id должен быть числом."))
+    except Exception as e:
+        logger.exception("unmonitor упал: %s", e)
+        await message.answer(fmt.format_error(str(e)))
+
+
+@router_live.message(Command("keywords"))
+async def cmd_keywords(message: Message, command: CommandObject) -> None:
+    if not _is_allowed(message):
+        return
+    args = (command.args or "").strip().split(maxsplit=1)
+    if not args:
+        await message.answer("Использование: /keywords &lt;chat_id&gt; &lt;kw1,kw2&gt;\nИли /keywords &lt;chat_id&gt; clear")
+        return
+    try:
+        cid = int(args[0])
+        from workers.live import monitor as live_mon
+        
+        if len(args) == 1:
+            kw = live_mon.get_keywords(cid)
+            await message.answer(f"🔑 Ключевые слова для <code>{cid}</code>: {', '.join(kw) if kw else '(пусто)'}")
+            return
+
+        raw_kw = args[1].strip()
+        if raw_kw.lower() == "clear":
+            kws = []
+        else:
+            kws = [k.strip() for k in raw_kw.split(",") if k.strip()]
+
+        live_mon.set_keywords(cid, kws)
+        if kws:
+            await message.answer(f"🔑 Ключевые слова для <code>{cid}</code>: {', '.join(kws)}")
+        else:
+            await message.answer(f"🔑 Ключевые слова для <code>{cid}</code> очищены.")
+    except ValueError:
+        await message.answer(fmt.format_error("chat_id должен быть числом."))
+    except Exception as e:
+        logger.exception("keywords упал: %s", e)
+        await message.answer(fmt.format_error(str(e)))
+
+
+# === CALLBACKS ===
+
+@router_live.callback_query(F.data.startswith("read:"))
+async def cb_read(cb: CallbackQuery) -> None:
+    if not _is_allowed(cb):
+        await _deny(cb)
+        return
+    try:
+        msg_id = int(cb.data.split(":")[1])
+        from core.database import get_session, LiveMessage
+        from sqlalchemy import update
+        with get_session() as session:
+            session.execute(update(LiveMessage).where(LiveMessage.id == msg_id).values(read_by_operator=1))
+            session.commit()
+        await cb.answer("Прочитано")
+        # Убираем кнопку
+        try:
+            await cb.message.edit_reply_markup(reply_markup=None)
+        except:
+            pass
+    except Exception as e:
+        logger.exception("cb_read упал: %s", e)
+        await cb.answer("Ошибка", show_alert=True)
+
+
+@router_live.callback_query(F.data.startswith("mute:"))
+async def cb_mute(cb: CallbackQuery) -> None:
+    if not _is_allowed(cb):
+        await _deny(cb)
+        return
+    try:
+        cid = int(cb.data.split(":")[1])
+        from workers.live import monitor as live_mon
+        live_mon.set_enabled(cid, False)
+        await cb.answer("🔇 Уведомления отключены")
+    except Exception as e:
+        logger.exception("cb_mute упал: %s", e)
+        await cb.answer("Ошибка", show_alert=True)
+

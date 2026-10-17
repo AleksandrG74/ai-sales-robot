@@ -240,3 +240,43 @@ def is_monitored(chat_id: int) -> bool:
     except Exception as e:
         logger.exception("is_monitored(%s) упал: %s", chat_id, e)
         return False
+
+
+# === KEYWORDS ===
+
+def get_keywords(chat_id: int) -> list[str]:
+    """Возвращает список ключевых слов для чата."""
+    try:
+        from core.database import get_session, MonitoredChat
+        from sqlalchemy import select
+        with get_session() as session:
+            row = session.execute(
+                select(MonitoredChat).where(MonitoredChat.chat_id == chat_id).limit(1)
+            ).scalar_one_or_none()
+            if row is None:
+                return []
+            return row.keywords or []
+    except Exception as e:
+        logger.exception("get_keywords(%s) упал: %s", chat_id, e)
+        return []
+
+
+def set_keywords(chat_id: int, keywords: list[str]) -> bool:
+    """Устанавливает ключевые слова для чата."""
+    try:
+        from core.database import get_session, MonitoredChat
+        from sqlalchemy import select
+        with get_session() as session:
+            row = session.execute(
+                select(MonitoredChat).where(MonitoredChat.chat_id == chat_id).limit(1)
+            ).scalar_one_or_none()
+            if row is None:
+                return False
+            row.keywords = keywords
+            session.commit()
+            logger.info("set_keywords: chat=%s keywords=%s", chat_id, keywords)
+            return True
+    except Exception as e:
+        logger.exception("set_keywords(%s) упал: %s", chat_id, e)
+        return False
+
