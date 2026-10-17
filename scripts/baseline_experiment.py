@@ -116,7 +116,7 @@ async def run_baseline():
             last_client_msg = data.get("actual", "")[:300]
 
         if not last_client_msg or not expected_text:
-            log.warning("[%d/%d] Пропуск %s: пустое сообщение или expected_text.", i, len(dialogues), d.dialogue_id)
+            log.warning("[%d/%d] Пропуск %s: пустое сообщение или expected_text.", i, len(dialogues), d["dialogue_id"])
             continue
 
         # Формируем простой промпт
@@ -136,17 +136,17 @@ async def run_baseline():
             cosines.append(cosine)
             
             results.append({
-                "dialogue_id": d.dialogue_id,
+                "dialogue_id": d["dialogue_id"],
                 "last_client_message": last_client_msg,
                 "expected_text": expected_text,
                 "llm_response": llm_text,
                 "cosine": round(cosine, 4)
             })
             
-            log.info("[%d/%d] %s | cosine: %.4f", i, len(dialogues), d.dialogue_id, cosine)
+            log.info("[%d/%d] %s | cosine: %.4f", i, len(dialogues), d["dialogue_id"], cosine)
 
         except Exception as e:
-            log.error("[%d/%d] Ошибка LLM на %s: %s", i, len(dialogues), d.dialogue_id, e)
+            log.error("[%d/%d] Ошибка LLM на %s: %s", i, len(dialogues), d["dialogue_id"], e)
             continue
 
     if not cosines:
