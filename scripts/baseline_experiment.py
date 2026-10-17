@@ -53,35 +53,27 @@ def _safe_json_loads(raw):
     return None
 
 
-def get_random_dialogues(limit: int) -> list[ProcessedDialogue]:
-    """Берёт случайные диалоги с фазой bootstrap."""
+def get_random_dialogues(limit: int) -> list[dict]:
+    """Берёт случайные диалоги с фазой bootstrap. Возвращает словари."""
     try:
         with get_session() as session:
-            # Получаем все ID, где phase='bootstrap' и есть result_json
             rows = session.execute(
-                select(ProcessedDialogue.id)
+                select(ProcessedDialogue)
                 .where(ProcessedDialogue.result_json.isnot(None))
                 .order_by(func.random())
-                .limit(limit * 3) # Берем с запасом, т.к. не все могут иметь phase='bootstrap'
+                .limit(limit * 3)
             ).scalars().all()
 
-            if not rows:
-                return []
-
-            # Теперь достаем сами объекты
-            ds = session.execute(
-                select(ProcessedDialogue).where(ProcessedDialogue.id.in_(rows))
-            ).scalars().all()
-
-            # Фильтруем по фазе bootstrap в Python (т.к. phase внутри JSON)
             valid = []
-            for d in ds:
+            for d in rows:
                 data = _safe_json_loads(d.result_json) or {}
                 if data.get("phase") == "bootstrap":
-                    # Запоминаем распарсенный JSON в объекте, чтобы не парсить повторно
-                    d._parsed_result = data
-                    valid.append(d)
-            
+                    # Сохраняем нужные поля в словарь, пока сессия открыта!
+                    valid.append({
+                        "dialogue_id": getattr(d, "id", None),
+                        "result_json": data,
+                        "expected_text": getattr(d, "expected_text", "")
+                    })
             return valid[:limit]
     except Exception as e:
         log.error("Ошибка получения диалогов: %s", e)
