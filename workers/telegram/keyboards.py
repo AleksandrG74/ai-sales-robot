@@ -242,3 +242,32 @@ def confirm_rollback_cancel_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="❌ Отмена", callback_data="cancel")],
     ])
+
+# === LIVE NOTIFICATIONS ===
+
+def get_live_notification_keyboard(chat_id: int, message_id: int = None) -> InlineKeyboardMarkup:
+    """
+    Клавиатура под уведомлением о новом сообщении.
+    """
+    import os
+    base_url = os.getenv("WEB_BACKEND_URL", "http://89.19.212.116:8080").rstrip("/")
+    open_url = f"{base_url}/live/{chat_id}"
+
+    row1: list[InlineKeyboardButton] = []
+    if message_id:
+        row1.append(InlineKeyboardButton(
+            text="✅ Прочитано",
+            callback_data=f"read:{message_id}",
+        ))
+    row1.append(InlineKeyboardButton(
+        text="🔗 Открыть в вебе",
+        url=open_url,
+    ))
+    row1.append(InlineKeyboardButton(
+        text="🔇 Молчать",
+        callback_data=f"mute:{chat_id}",
+    ))
+
+    return InlineKeyboardMarkup(inline_keyboard=[row1])
+
+

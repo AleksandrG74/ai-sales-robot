@@ -536,6 +536,55 @@ def format_help() -> str:
     return _truncate("\n".join(lines))
 
 
+
+# === LIVE NOTIFICATIONS ===
+
+def format_live_notification(msg: dict, chat_title: Optional[str] = None) -> str:
+    """
+    Форматирует уведомление о новом входящем live-сообщении (HTML).
+    """
+    lines: list[str] = []
+    lines.append("<b>🆕 Новое сообщение</b>")
+    lines.append("")
+
+    # Чат
+    title = chat_title or msg.get("chat_title")
+    if title:
+        lines.append(f"<b>Чат:</b> {_esc(title)}")
+    else:
+        lines.append(f"<b>Чат:</b> <code>{_esc(msg.get('chat_id'))}</code>")
+
+    # Автор
+    username = msg.get("author_username")
+    first_name = msg.get("author_first_name")
+    author_id = msg.get("author_id")
+
+    author_parts: list[str] = []
+    if first_name:
+        author_parts.append(_esc(first_name))
+    if username:
+        author_parts.append(f"@{_esc(username)}")
+    if not author_parts and author_id:
+        author_parts.append(f"ID: <code>{_esc(author_id)}</code>")
+
+    if author_parts:
+        lines.append(f"<b>Автор:</b> {' '.join(author_parts)}")
+
+    # Текст
+    text = (msg.get("text") or "").strip()
+    if text:
+        if len(text) > 300:
+            text = text[:297] + "…"
+        lines.append("")
+        lines.append(_esc(text))
+
+    # Низ
+    lines.append("")
+    lines.append(f"🆔 <code>{_esc(msg.get('chat_id'))}</code>")
+
+    return _truncate("\n".join(lines))
+
+
 # === СЛУЖЕБНЫЕ ОТВЕТЫ ===
 
 def format_error(message: str) -> str:
