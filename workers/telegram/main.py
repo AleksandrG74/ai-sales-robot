@@ -3,7 +3,7 @@
 Точка входа бота оператора (aiogram 3.x).
 
 ВАЖНО: Telegram Bot API доступен только с сервера (Германия).
-Локальный запуск на ПК не работает (Telegram в РФ не доступен без прокси/VPN).
+Локальный запуск на ПК не работает (Telegram в РФ недоступен без прокси/VPN).
 На ПК допустимы только статические проверки:
     python -c "import ast; ast.parse(open('workers/telegram/main.py', encoding='utf-8').read())"
     python -c "import workers.telegram.main"   # не создаёт Bot, не делает сетевых вызовов
@@ -24,7 +24,9 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 
+# Импортируем оба роутера (основные команды + управление live-мониторингом)
 from workers.telegram.handlers import router as operator_router, router_live
+from workers.telegram.notifications import NotificationPoller
 
 logger = logging.getLogger("telegram-worker")
 
@@ -96,7 +98,9 @@ async def _run() -> None:
         token=token,
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
     )
+    
     dp = Dispatcher()
+    # Регистрируем оба роутера: базовый (commands) и live-management (FSM)
     dp.include_router(operator_router)
     dp.include_router(router_live)
 
@@ -135,6 +139,20 @@ async def _run() -> None:
         except Exception as e:
             logger.warning("delete_webhook не удался (не критично): %s", e)
 
+        # --- Запуск NotificationPoller ---
+        operator_chat_id_str = os.getenv("TELEGRAM_OPERATOR_CHAT_ID", "").strip()
+        notifier = None
+        if operator_chat_id_str:
+            try:
+                op_id = int(operator_chat_id_str.split(",")[0].strip())
+                notifier = NotificationPoller(bot=bot, operator_chat_id=op_id)
+                notifier.start()
+                logger.info("NotificationPoller запущен (operator_id=%s).", op_id)
+            except Exception as e:
+                logger.error("Не удалось запустить NotificationPoller: %s", e)
+        else:
+            logger.warning("TELEGRAM_OPERATOR_CHAT_ID не задан — уведомления отключены.")
+
         logger.info("Запускаю long polling…")
 
         # Параллельно: polling + ожидание stop_event
@@ -156,6 +174,14 @@ async def _run() -> None:
                 logger.exception("Polling завершился с ошибкой: %s", exc)
             else:
                 logger.info("Polling завершился штатно.")
+
+        # Останавливаем NotificationPoller
+        if notifier is not None:
+            try:
+                await notifier.stop()
+                logger.info("NotificationPoller остановлен.")
+            except Exception as e:
+                logger.warning("Остановка NotificationPoller упала: %s", e)
 
         # Останавливаем polling
         try:
