@@ -58,6 +58,7 @@ def _get_monitored_chat(chat_id: int) -> Optional[dict]:
                 "chat_type": row.chat_type,
                 "enabled": int(row.enabled or 0),
                 "auto_reply": int(row.auto_reply or 0),
+                "keywords": row.keywords or [],
             }
     except Exception as e:
         logger.exception("_get_monitored_chat(%s) упал: %s", chat_id, e)
@@ -74,6 +75,7 @@ def _save_live_message(
     is_outgoing: int,
     reply_to_msg_id: Optional[int],
     sent_at: Optional[datetime],
+    force_read: bool = False,
 ) -> bool:
     """
     Идемпотентно пишет сообщение в live_messages.
@@ -105,7 +107,7 @@ def _save_live_message(
                 reply_to_msg_id=reply_to_msg_id,
                 sent_at=sent_at or datetime.now(timezone.utc),
                 imported_at=datetime.now(timezone.utc),
-                read_by_operator=1 if is_outgoing else 0,
+                read_by_operator=1 if (is_outgoing or force_read) else 0,
             )
             session.add(row)
             session.commit()
@@ -194,6 +196,26 @@ def _extract(event: Any) -> Optional[dict]:
 
 # === ОСНОВНОЙ ОБРАБОТЧИК ===
 
+
+# === ПРОВЕРКА KEYWORDS ===
+
+def _check_keywords(text: str, keywords: list) -> bool:
+    """
+    Проверяет, содержит ли текст хотя бы одно из ключевых слов (case-insensitive).
+    Если keywords пуст или None — возвращает True (пропускать всё).
+    """
+    if not keywords:
+        return True
+    if not text:
+        return False
+    text_lower = text.lower()
+    for kw in keywords:
+        if isinstance(kw, str) and kw.strip():
+            if kw.strip().lower() in text_lower:
+                return True
+    return False
+
+
 async def on_new_message(event: Any) -> None:
     """
     Реакция на новое сообщение.
@@ -219,6 +241,13 @@ async def on_new_message(event: Any) -> None:
             logger.debug("Чат %s отключён (enabled=0) — игнорирую.", chat_id)
             return
 
+        # --- Проверка keywords ---
+        is_ignored = False
+        if not data["is_outgoing"]:
+            kws = monitored.get("keywords") or []
+            if not _check_keywords(data["text"], kws):
+                is_ignored = True
+
         # Пишем в live_messages
         ok = _save_live_message(
             chat_id=data["chat_id"],
@@ -230,6 +259,7 @@ async def on_new_message(event: Any) -> None:
             is_outgoing=data["is_outgoing"],
             reply_to_msg_id=data["reply_to_msg_id"],
             sent_at=data["sent_at"],
+            force_read=is_ignored,  # <--- Новый параметр
         )
         if not ok:
             return
@@ -241,6 +271,14 @@ async def on_new_message(event: Any) -> None:
             return
 
         _bump_session_received()
+
+        if is_ignored:
+            logger.info(
+                "Сообщение проигнорировано по keywords: chat=%s msg=%s (нет совпадений)",
+                chat_id, data["message_id"],
+            )
+            return
+
         logger.info(
             "Новое входящее: chat=%s msg=%s author=@%s text=%r",
             chat_id, data["message_id"], data["author_username"], (data["text"] or "")[:80],
