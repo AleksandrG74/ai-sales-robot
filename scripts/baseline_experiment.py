@@ -97,7 +97,7 @@ async def run_baseline():
     cosines = []
 
     for i, d in enumerate(dialogues, start=1):
-        data = d._parsed_result
+        data = d["result_json"]
         expected_text = data.get("expected_text")
         
         # Извлекаем "последнее сообщение клиента" из промпта
