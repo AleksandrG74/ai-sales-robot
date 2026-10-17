@@ -148,6 +148,29 @@ def _detect_stage_safe(normalized: list[dict]) -> tuple[Optional[str], Optional[
 
 # === СБОРКА ПОЛНОГО BuiltPrompt ===
 
+
+def _inject_live_rules(messages: list[dict]) -> list[dict]:
+    """
+    Добавляет правила в system-промпт, чтобы агент не был навязчивым продавцом,
+    если диалог не про продажи.
+    """
+    if not messages:
+        return messages
+
+    # Ищем system
+    system_msg = next((m for m in messages if m.get("role") == "system"), None)
+    if system_msg:
+        extra_rules = (
+            "\n\n## ВАЖНЫЕ ПРАВИЛА ДЛЯ ЖИВОГО ДИАЛОГА\n"
+            "1. Если клиент обсуждает техническую проблему, задаёт вопрос по железу, софту или просит помощи — "
+            "отвечай как полезный технический ассистент. НЕ пытайся продать товар, не предлагай купить, не используй скрипты продаж.\n"
+            "2. Продажа уместна только если клиент сам проявил интерес к покупке (спросил цену, наличие, как купить).\n"
+            "3. Твоя главная цель — быть полезным. Не будь навязчивым."
+        )
+        system_msg["content"] = str(system_msg.get("content", "")) + extra_rules
+    return messages
+
+
 def build_suggest_prompt_full(
     chat_id: int,
     message_id: int,
@@ -188,6 +211,8 @@ def build_suggest_prompt_full(
             "build_suggest_prompt_full: chat=%s msg=%s role=%s agg=%s stage=%s",
             chat_id, message_id, role, aggression, stage,
         )
+        # 8.7: Добавляем правила live-режима
+        built.messages = _inject_live_rules(built.messages)
         return built
     except Exception as e:
         logger.exception("build_prompt упал: %s", e)
