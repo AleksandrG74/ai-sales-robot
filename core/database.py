@@ -92,6 +92,7 @@ class WordStat(Base):
     success_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     success_rate: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     pmi_score: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    token_group: Mapped[Optional[str]] = mapped_column(String(32), nullable=True, index=True)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=_utcnow, onupdate=_utcnow, nullable=False
     )

@@ -40,7 +40,7 @@ TOP_TOKENS_LIMIT = 10
 # ============================================================
 # word_stats
 # ============================================================
-def update_word_stats(tokens: Iterable[str], success: bool) -> int:
+def update_word_stats(tokens: Iterable[str], success: bool, token_group: Optional[str] = None) -> int:
     """Обновляет word_stats для списка токенов.
 
     Returns:
@@ -62,6 +62,8 @@ def update_word_stats(tokens: Iterable[str], success: bool) -> int:
                 ws.total_count = (ws.total_count or 0) + 1
                 if success:
                     ws.success_count = (ws.success_count or 0) + 1
+                if token_group and not ws.token_group:
+                    ws.token_group = token_group
                 total = ws.total_count or 1
                 ws.success_rate = float(ws.success_count or 0) / float(total)
                 updated += 1
@@ -77,6 +79,7 @@ def get_top_tokens(
     n: int = TOP_TOKENS_LIMIT,
     min_count: int = 1,
     by: str = "success_rate",
+    token_group: Optional[str] = None,
 ) -> list[dict[str, Any]]:
     """Возвращает топ-N токенов.
 
@@ -85,6 +88,8 @@ def get_top_tokens(
     try:
         with get_session() as s:
             q = s.query(WordStat).filter(WordStat.total_count >= min_count)
+            if token_group:
+                q = q.filter(WordStat.token_group == token_group)
             if by == "success_rate":
                 q = q.order_by(WordStat.success_rate.desc(), WordStat.word.asc())
             elif by == "total_count":
