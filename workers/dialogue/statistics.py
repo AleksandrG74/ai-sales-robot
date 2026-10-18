@@ -288,6 +288,86 @@ def compute_all_pmi(top_n: int = 50) -> dict[str, float]:
     return result
 
 
+def calculate_pmi_word_success(
+    word: str,
+    total_docs: int,
+    word_count: int,
+    success_count: int,
+    total_success: int,
+) -> float:
+    """
+    PMI(word, success) = log2( P(word, success) / (P(word) * P(success)) )
+
+    Входы:
+    - total_docs:    всего диалогов (знаменатель)
+    - word_count:    в скольких диалогах встречается слово
+    - success_count: в скольких из них диалог успешен
+    - total_success: сколько всего успешных диалогов
+    """
+    if total_docs <= 0 or word_count <= 0 or success_count <= 0 or total_success <= 0:
+        return 0.0
+
+    p_ws = success_count / total_docs
+    p_w = word_count / total_docs
+    p_s = total_success / total_docs
+
+    try:
+        pmi = math.log2(p_ws / (p_w * p_s))
+    except (ValueError, ZeroDivisionError):
+        return 0.0
+    return round(pmi, 4)
+
+
+def update_pmi_scores_word_success() -> int:
+    """
+    Обновляет word_stats.pmi_score по формуле PMI(word, success),
+    используя счётчики из word_stats и processed_dialogues.
+
+    Возвращает количество обновлённых слов.
+    """
+    try:
+        from core.database import get_session, WordStat, ProcessedDialogue
+        from sqlalchemy import select, func
+        with get_session() as session:
+            total_docs = int(session.execute(
+                select(func.count(ProcessedDialogue.id))
+            ).scalar_one() or 0)
+            if total_docs == 0:
+                return 0
+
+            # total_success: считаем по статусу 'ok' (или success)
+            total_success = int(session.execute(
+                select(func.count(ProcessedDialogue.id))
+                .where(ProcessedDialogue.status.in_(("ok", "success")))
+            ).scalar_one() or 0)
+
+            if total_success == 0:
+                return 0
+
+            rows = session.execute(select(WordStat)).scalars().all()
+            updated = 0
+            for r in rows:
+                if not r.word:
+                    continue
+                wc = int(r.total_count or 0)
+                sc = int(r.success_count or 0)
+                pmi = calculate_pmi_word_success(
+                    word=r.word,
+                    total_docs=total_docs,
+                    word_count=wc,
+                    success_count=sc,
+                    total_success=total_success,
+                )
+                r.pmi_score = pmi
+                updated += 1
+            session.commit()
+            log.info("update_pmi_scores_word_success: обновлено %d слов.", updated)
+            return updated
+    except Exception as exc:
+        log.exception("update_pmi_scores_word_success упал: %s", exc)
+        return 0
+
+
 def update_pmi_scores(scores: dict[str, float]) -> int:
     """Обновляет word_stats.pmi_score для всех слов из scores."""
     if not scores:
