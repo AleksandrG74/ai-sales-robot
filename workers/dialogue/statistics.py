@@ -373,6 +373,25 @@ def update_pmi_scores_word_success() -> int:
         return 0
 
 
+
+
+# --- триггер пересчёта PMI(word, success) раз в N диалогов ---
+_PMI_WS_COUNTER = {"n": 0}
+
+
+def maybe_update_pmi_word_success(interval: int = 10) -> int:
+    """
+    Пересчитывает PMI(word, success) раз в N диалогов.
+    Возвращает число обновлённых слов (0 — если не пришло время).
+    """
+    _PMI_WS_COUNTER["n"] += 1
+    if _PMI_WS_COUNTER["n"] % max(1, interval) != 0:
+        return 0
+    log.info("maybe_update_pmi_word_success: триггер на %d-м диалоге.", _PMI_WS_COUNTER["n"])
+    return update_pmi_scores_word_success()
+
+
+
 def update_pmi_scores(scores: dict[str, float]) -> int:
     """Обновляет word_stats.pmi_score для всех слов из scores."""
     if not scores:

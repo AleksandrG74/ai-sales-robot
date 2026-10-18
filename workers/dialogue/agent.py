@@ -644,6 +644,11 @@ async def process_dialogue(
         log.exception("maybe_snapshot failed: %s", exc)
 
     try:
+        statistics.maybe_update_pmi_word_success(interval=10)
+    except Exception as exc:
+        log.exception("maybe_update_pmi_word_success failed: %s", exc)
+
+    try:
         versioning.maybe_auto_version()
     except Exception as exc:
         log.exception("maybe_auto_version failed: %s", exc)
