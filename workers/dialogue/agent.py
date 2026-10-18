@@ -547,13 +547,25 @@ async def process_dialogue(
     score = combine_score(score_dialogue, score_response)
 
     # 11. word_stats + connection_matrix
+    # Патент п.1: при успехе/провале обновляем счётчики и фиксируем token_group,
+    # чтобы get_top_tokens мог фильтровать по текущей/следующей группе.
     try:
         tokens_found: list[str] = []
-        for grp in (per_group or {}).values():
-            tokens_found.extend(grp)
-        tokens_found = sorted(set(t.lower() for t in tokens_found))
+        success_flag = (score >= 0.7)
+        for group_name, grp_tokens in (per_group or {}).items():
+            if not grp_tokens:
+                continue
+            tokens_in_group = sorted(set(t.lower() for t in grp_tokens if t))
+            if tokens_in_group:
+                statistics.update_word_stats(
+                    tokens_in_group,
+                    success=success_flag,
+                    token_group=group_name,
+                )
+                tokens_found.extend(tokens_in_group)
+        # connection_matrix — на всех уникальных токенах
+        tokens_found = sorted(set(tokens_found))
         if tokens_found:
-            statistics.update_word_stats(tokens_found, success=(score >= 0.7))
             statistics.update_connection_matrix(tokens_found)
     except Exception as exc:
         log.exception("statistics update failed: %s", exc)
