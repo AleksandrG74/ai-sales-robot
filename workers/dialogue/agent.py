@@ -578,6 +578,16 @@ async def process_dialogue(
     except Exception as exc:
         log.exception("bridges update failed: %s", exc)
 
+    # 12.5 матрица переходов между группами (п. 6 формулы)
+    try:
+        statistics.update_group_transitions(
+            from_group=stage_before,
+            to_group=stage_after,
+            success=(score >= 0.7),
+        )
+    except Exception as exc:
+        log.exception("update_group_transitions failed: %s", exc)
+
     # 13. top_tokens
     try:
         top_tokens_raw = statistics.get_top_tokens(10, by="success_rate")

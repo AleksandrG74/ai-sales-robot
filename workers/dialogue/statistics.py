@@ -494,6 +494,48 @@ def cleanup_old_pmi(days: int = 90) -> int:
 # ============================================================
 # connection_matrix
 # ============================================================
+
+def update_group_transitions(
+    from_group: Optional[str],
+    to_group: Optional[str],
+    success: bool = True,
+) -> bool:
+    """
+    Фиксирует переход между этапами (from_group -> to_group)
+    в таблице bridge_weights.
+
+    Используется для п. 6 формулы: «матрица переходов между группами».
+    """
+    if not from_group or not to_group or from_group == to_group:
+        return False
+    try:
+        from core.database import get_session, BridgeWeight
+        with get_session() as s:
+            bw = s.query(BridgeWeight).filter_by(
+                from_group=from_group,
+                to_group=to_group,
+            ).one_or_none()
+            if bw is None:
+                bw = BridgeWeight(
+                    bridge_token="",
+                    from_group=from_group,
+                    to_group=to_group,
+                    weight=0.0,
+                    success_count=0,
+                    total_count=0,
+                )
+                s.add(bw)
+                s.flush()
+            bw.total_count = (bw.total_count or 0) + 1
+            if success:
+                bw.success_count = (bw.success_count or 0) + 1
+            bw.weight = float(bw.success_count or 0) / float(bw.total_count or 1)
+    except Exception as exc:
+        log.exception("update_group_transitions failed: %s", exc)
+        return False
+    return True
+
+
 def update_connection_matrix(tokens: Iterable[str], *, weight_step: float = 0.1) -> int:
     """Попарно обновляет рёбра для токенов одного диалога.
 
