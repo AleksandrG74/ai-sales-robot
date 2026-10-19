@@ -1,13 +1,7 @@
 # workers/live/handler.py
 """
-Обработка входящих сообщений через Long Polling (принудительный опрос).
-
-Причина: Telegram (в режиме user-account) не всегда доставляет events.NewMessage
-из-за конфликта сессий или ограничений канала. Мы опрашиваем `get_messages` каждые 5 сек.
-
-Публичные функции:
-- polling_loop(client, stop_event) — основной цикл.
-- process_message(msg_data, chat_meta) — обработка одного сообщения (LLM, авто-ответ).
+Обработка входящих сообщений через Long Polling (iter_messages).
+Жёсткая фильтрация: не обрабатываем свои сообщения (m.out == True) и сообщения от нашего аккаунта.
 """
 
 import asyncio
@@ -156,14 +150,11 @@ def _check_keywords(text: str, keywords: list) -> bool:
     return any(kw.strip().lower() in t_lower for kw in keywords if isinstance(kw, str) and kw.strip())
 
 
-async def process_message(msg_data: dict, chat_meta: dict) -> None:
-    """Обрабатывает уже сохранённое сообщение (LLM-подсказка, авто-ответ)."""
-    chat_id = msg_data["chat_id"]
-    message_id = msg_data["message_id"]
+async def handle_new_message(msg, chat_meta: dict) -> None:
+    """Обработка одного сообщения (LLM, авто-ответ)."""
+    chat_id = msg.chat_id
+    message_id = msg.id
     
-    if msg_data["is_outgoing"]:
-        return
-
     _bump_session_received()
     logger.info("polling: найдено новое сообщение id=%s (chat=%s)", message_id, chat_id)
 
@@ -193,10 +184,15 @@ async def process_message(msg_data: dict, chat_meta: dict) -> None:
 
 async def polling_loop(client: Any, stop_event: asyncio.Event) -> None:
     """
-    Основной цикл: раз в 5 секунд опрашивает get_messages для всех enabled чатов.
+    Основной цикл: раз в 5 секунд опрашивает iter_messages для всех enabled чатов.
     """
     logger.info("handler.polling_loop: запущен (интервал 5с).")
     
+    # Получаем ID нашего аккаунта, чтобы отфильтровать свои сообщения
+    me = await client.get_me()
+    my_id = me.id if me else None
+    logger.info("handler.polling_loop: my_id=%s", my_id)
+
     while not stop_event.is_set():
         try:
             chats = _get_monitored_chats()
@@ -209,8 +205,11 @@ async def polling_loop(client: Any, stop_event: asyncio.Event) -> None:
                 if entity is None:
                     continue
                 
-                # Получаем последние 5 сообщений
-                messages = await client.get_messages(entity, limit=5)
+                # Получаем последние 5 сообщений через iter_messages (надёжнее)
+                messages = []
+                async for m in client.iter_messages(entity, limit=5):
+                    messages.append(m)
+                
                 if not messages:
                     continue
 
@@ -219,7 +218,15 @@ async def polling_loop(client: Any, stop_event: asyncio.Event) -> None:
                     if stop_event.is_set():
                         break
                     
+                    # Жёсткие фильтры:
+                    # 1. Не пустое
                     if not msg.message:
+                        continue
+                    # 2. Не наше сообщение (out=False)
+                    if getattr(msg, "out", False):
+                        continue
+                    # 3. Не от нашего аккаунта
+                    if my_id and getattr(msg, "sender_id", None) == my_id:
                         continue
 
                     # Проверяем, есть ли уже в БД
@@ -245,24 +252,18 @@ async def polling_loop(client: Any, stop_event: asyncio.Event) -> None:
                         
                     ok = _save_live_message(
                         chat_id=chat_id, message_id=msg.id,
-                        author_id=getattr(sender, "id", None) if sender else None,
+                        author_id=getattr(sender, "id", None) if sender else getattr(msg, "sender_id", None),
                         author_username=getattr(sender, "username", None) if sender else None,
                         author_first_name=getattr(sender, "first_name", None) if sender else None,
-                        text=msg.message, is_outgoing=1 if getattr(msg, "out", False) else 0,
+                        text=msg.message, is_outgoing=0,
                         reply_to_msg_id=getattr(getattr(msg, "reply_to", None), "reply_to_msg_id", None),
                         sent_at=msg.date,
                     )
                     
                     if ok:
                         _touch_monitored_chat(chat_id, msg.date)
-                        msg_data = {
-                            "chat_id": chat_id,
-                            "message_id": msg.id,
-                            "text": msg.message,
-                            "is_outgoing": 1 if getattr(msg, "out", False) else 0,
-                        }
                         # Запускаем обработку в фоне
-                        asyncio.create_task(process_message(msg_data, chat))
+                        asyncio.create_task(handle_new_message(msg, chat))
 
         except Exception as e:
             logger.exception("Ошибка в polling_loop: %s", e)
