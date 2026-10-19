@@ -744,19 +744,25 @@ async def process_forward(message: Message, state: FSMContext) -> None:
     if not _is_allowed(message):
         return
     
-    # Получаем origin чата (в aiogram 3.x используется forward_origin)
+    from aiogram.types import MessageOriginChannel, MessageOriginChat, MessageOriginUser
+    
     origin = getattr(message, "forward_origin", None)
     if not origin:
         await message.answer("Пожалуйста, перешли именно сообщение из чата.")
         return
 
-    chat = getattr(origin, "chat", None) or getattr(origin, "sender_chat", None)
-    if not chat:
+    if isinstance(origin, MessageOriginChannel):
+        chat_id = origin.chat.id
+        title = origin.chat.title
+    elif isinstance(origin, MessageOriginChat):
+        chat_id = origin.sender_chat.id
+        title = origin.sender_chat.title
+    elif isinstance(origin, MessageOriginUser):
+        chat_id = origin.sender_user.id
+        title = origin.sender_user.full_name
+    else:
         await message.answer("Не удалось определить чат из пересланного сообщения.")
         return
-
-    chat_id = chat.id
-    title = getattr(chat, "title", None) or getattr(chat, "first_name", "Без названия")
 
     try:
         from workers.live import monitor as live_mon
