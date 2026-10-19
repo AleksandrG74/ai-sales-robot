@@ -1,22 +1,16 @@
 # workers/live/handler.py
 """
-Обработка входящих сообщений из Telegram (Telethon events.NewMessage).
+Обработка входящих сообщений через Long Polling (принудительный опрос).
 
-Задачи:
-- Регистрирует handler на событие NewMessage у LiveTelethonClient.
-- Фильтрует сообщения: только из monitored_chats, только enabled=1.
-- Сохраняет в live_messages (UNIQUE(chat_id, message_id) — идемпотентно).
-- Обновляет monitored_chats.last_message_at.
-- Если включён LIVE_LLM_SUGGEST=1 — генерирует llm_suggestion (в suggest.py).
-- Опционально (LIVE_AUTO_REPLY=1, auto_reply=1 у чата) — авто-ответ через sender.
+Причина: Telegram (в режиме user-account) не всегда доставляет events.NewMessage
+из-за конфликта сессий или ограничений канала. Мы опрашиваем `get_messages` каждые 5 сек.
 
-Модуль зависит от:
-- workers.live.telethon_client.LiveTelethonClient
-- workers.live.suggest (ленивый импорт — чтобы не падать, если модуль ещё не создан)
-- workers.live.sender (ленивый импорт — по той же причине)
-- core.database (get_session, MonitoredChat, LiveMessage)
+Публичные функции:
+- polling_loop(client, stop_event) — основной цикл.
+- process_message(msg_data, chat_meta) — обработка одного сообщения (LLM, авто-ответ).
 """
 
+import asyncio
 import logging
 import os
 from datetime import datetime, timezone
@@ -24,45 +18,53 @@ from typing import Any, Optional
 
 logger = logging.getLogger("live-worker.handler")
 
-# Внутренний singleton: id live_sessions, в рамках которого работаем.
-# Устанавливается main.py, если захочет учитывать messages_in/out.
 _CURRENT_SESSION_ID: Optional[int] = None
 
 
 def set_session_id(session_id: Optional[int]) -> None:
-    """Позволяет main.py передать id текущей live_sessions для счётчиков."""
     global _CURRENT_SESSION_ID
     _CURRENT_SESSION_ID = session_id
 
 
 # === ХЕЛПЕРЫ БД ===
 
-def _get_monitored_chat(chat_id: int) -> Optional[dict]:
-    """
-    Возвращает dict с данными monitored_chats по chat_id или None,
-    если чат не отслеживается/выключен.
-    """
+def _get_monitored_chats() -> list[dict]:
     try:
         from core.database import get_session, MonitoredChat
         from sqlalchemy import select
         with get_session() as session:
-            row = session.execute(
-                select(MonitoredChat).where(MonitoredChat.chat_id == chat_id).limit(1)
-            ).scalar_one_or_none()
-            if row is None:
-                return None
-            return {
-                "id": row.id,
-                "chat_id": row.chat_id,
-                "chat_title": row.chat_title,
-                "chat_type": row.chat_type,
-                "enabled": int(row.enabled or 0),
-                "auto_reply": int(row.auto_reply or 0),
-                "keywords": row.keywords or [],
-            }
+            rows = session.execute(
+                select(MonitoredChat).where(MonitoredChat.enabled == 1)
+            ).scalars().all()
+            return [
+                {
+                    "chat_id": r.chat_id,
+                    "chat_title": r.chat_title,
+                    "keywords": r.keywords or [],
+                    "auto_reply": int(r.auto_reply or 0),
+                }
+                for r in rows
+            ]
     except Exception as e:
-        logger.exception("_get_monitored_chat(%s) упал: %s", chat_id, e)
-        return None
+        logger.exception("_get_monitored_chats упал: %s", e)
+        return []
+
+
+def _is_message_saved(chat_id: int, message_id: int) -> bool:
+    try:
+        from core.database import get_session, LiveMessage
+        from sqlalchemy import select
+        with get_session() as session:
+            row = session.execute(
+                select(LiveMessage.id)
+                .where(LiveMessage.chat_id == chat_id)
+                .where(LiveMessage.message_id == message_id)
+                .limit(1)
+            ).scalar_one_or_none()
+            return row is not None
+    except Exception as e:
+        logger.warning("_is_message_saved(%s, %s) упал: %s", chat_id, message_id, e)
+        return False
 
 
 def _save_live_message(
@@ -77,16 +79,10 @@ def _save_live_message(
     sent_at: Optional[datetime],
     force_read: bool = False,
 ) -> bool:
-    """
-    Идемпотентно пишет сообщение в live_messages.
-    Возвращает True, если строка реально вставлена (или уже была — считается True),
-    False — при ошибке.
-    """
     try:
         from core.database import get_session, LiveMessage
         from sqlalchemy import select
         with get_session() as session:
-            # Проверяем дубликат (UNIQUE(chat_id, message_id))
             existing = session.execute(
                 select(LiveMessage)
                 .where(LiveMessage.chat_id == chat_id)
@@ -113,15 +109,11 @@ def _save_live_message(
             session.commit()
         return True
     except Exception as e:
-        logger.exception(
-            "Не удалось сохранить live_message chat=%s msg=%s: %s",
-            chat_id, message_id, e,
-        )
+        logger.exception("Не удалось сохранить live_message chat=%s msg=%s: %s", chat_id, message_id, e)
         return False
 
 
 def _touch_monitored_chat(chat_id: int, when: Optional[datetime]) -> None:
-    """Обновляет monitored_chats.last_message_at."""
     try:
         from core.database import get_session, MonitoredChat
         from sqlalchemy import select
@@ -129,16 +121,14 @@ def _touch_monitored_chat(chat_id: int, when: Optional[datetime]) -> None:
             row = session.execute(
                 select(MonitoredChat).where(MonitoredChat.chat_id == chat_id).limit(1)
             ).scalar_one_or_none()
-            if row is None:
-                return
-            row.last_message_at = when or datetime.now(timezone.utc)
-            session.commit()
+            if row:
+                row.last_message_at = when or datetime.now(timezone.utc)
+                session.commit()
     except Exception as e:
         logger.warning("_touch_monitored_chat(%s) упал: %s", chat_id, e)
 
 
 def _bump_session_received() -> None:
-    """Инкремент messages_in в live_sessions (если задан session_id)."""
     if not _CURRENT_SESSION_ID:
         return
     try:
@@ -148,217 +138,139 @@ def _bump_session_received() -> None:
             row = session.execute(
                 select(LiveSession).where(LiveSession.id == _CURRENT_SESSION_ID).limit(1)
             ).scalar_one_or_none()
-            if row is None:
-                return
-            row.messages_received = int(row.messages_received or 0) + 1
-            session.commit()
+            if row:
+                row.messages_received = int(row.messages_received or 0) + 1
+                session.commit()
     except Exception as e:
         logger.warning("_bump_session_received упал: %s", e)
 
 
-# === ИЗВЛЕЧЕНИЕ ДАННЫХ ИЗ TELEGRAM-СООБЩЕНИЯ ===
-
-def _extract(event: Any) -> Optional[dict]:
-    """
-    Приводит Telethon-объект NewMessage.Event к dict-представлению.
-    Возвращает None, если событие не подходит (например, нет chat_id).
-    """
-    try:
-        msg = event.message
-        if msg is None:
-            return None
-
-        chat_id = event.chat_id
-        if chat_id is None:
-            return None
-
-        sender = None
-        try:
-            sender = event.sender  # User/Channel/...
-        except Exception:
-            sender = None
-
-        return {
-            "chat_id": int(chat_id),
-            "message_id": int(msg.id),
-            "author_id": int(getattr(sender, "id", 0)) if sender is not None else None,
-            "author_username": getattr(sender, "username", None),
-            "author_first_name": getattr(sender, "first_name", None),
-            "text": msg.message or "",
-            "is_outgoing": 1 if getattr(msg, "out", False) else 0,
-            "reply_to_msg_id": getattr(getattr(msg, "reply_to", None), "reply_to_msg_id", None),
-            "sent_at": getattr(msg, "date", None),
-        }
-    except Exception as e:
-        logger.exception("_extract упал: %s", e)
-        return None
-
-
-# === ОСНОВНОЙ ОБРАБОТЧИК ===
-
-
-# === ПРОВЕРКА KEYWORDS ===
+# === ЛОГИКА ОБРАБОТКИ ===
 
 def _check_keywords(text: str, keywords: list) -> bool:
-    """
-    Проверяет, содержит ли текст хотя бы одно из ключевых слов (case-insensitive).
-    Если keywords пуст или None — возвращает True (пропускать всё).
-    """
     if not keywords:
         return True
     if not text:
         return False
-    text_lower = text.lower()
-    for kw in keywords:
-        if isinstance(kw, str) and kw.strip():
-            if kw.strip().lower() in text_lower:
-                return True
-    return False
+    t_lower = text.lower()
+    return any(kw.strip().lower() in t_lower for kw in keywords if isinstance(kw, str) and kw.strip())
 
 
-async def on_new_message(event: Any) -> None:
-    """
-    Реакция на новое сообщение.
-    Порядок:
-      1. Извлечь данные.
-      2. Проверить, что чат в monitored_chats и enabled=1.
-      3. Сохранить в live_messages.
-      4. Обновить last_message_at.
-      5. Опционально: LLM-подсказка.
-      6. Опционально: авто-ответ.
-    """
-    try:
-        data = _extract(event)
-        if data is None:
-            return
-
-        chat_id = data["chat_id"]
-        monitored = _get_monitored_chat(chat_id)
-        if monitored is None:
-            logger.debug("Сообщение из неотслеживаемого чата %s — игнорирую.", chat_id)
-            return
-        if not monitored.get("enabled"):
-            logger.debug("Чат %s отключён (enabled=0) — игнорирую.", chat_id)
-            return
-
-        # --- Проверка keywords ---
-        is_ignored = False
-        if not data["is_outgoing"]:
-            kws = monitored.get("keywords") or []
-            if not _check_keywords(data["text"], kws):
-                is_ignored = True
-
-        # Пишем в live_messages
-        ok = _save_live_message(
-            chat_id=data["chat_id"],
-            message_id=data["message_id"],
-            author_id=data["author_id"],
-            author_username=data["author_username"],
-            author_first_name=data["author_first_name"],
-            text=data["text"],
-            is_outgoing=data["is_outgoing"],
-            reply_to_msg_id=data["reply_to_msg_id"],
-            sent_at=data["sent_at"],
-            force_read=is_ignored,  # <--- Новый параметр
-        )
-        if not ok:
-            return
-
-        _touch_monitored_chat(chat_id, data["sent_at"])
-
-        if data["is_outgoing"]:
-            logger.debug("Исходящее сообщение chat=%s msg=%s (не считаем messages_in).", chat_id, data["message_id"])
-            return
-
-        _bump_session_received()
-
-        if is_ignored:
-            logger.info(
-                "Сообщение проигнорировано по keywords: chat=%s msg=%s (нет совпадений)",
-                chat_id, data["message_id"],
-            )
-            return
-
-        logger.info(
-            "Новое входящее: chat=%s msg=%s author=@%s text=%r",
-            chat_id, data["message_id"], data["author_username"], (data["text"] or "")[:80],
-        )
-
-        # Опционально: LLM-подсказка
-        if os.getenv("LIVE_LLM_SUGGEST", "1").strip() == "1":
-            await _try_generate_suggestion(chat_id, data)
-
-        # Опционально: авто-ответ
-        auto_reply_env = os.getenv("LIVE_AUTO_REPLY", "0").strip() == "1"
-        if auto_reply_env and monitored.get("auto_reply"):
-            await _try_auto_reply(chat_id, data)
-
-    except Exception as e:
-        logger.exception("on_new_message упал: %s", e)
-
-
-async def _try_generate_suggestion(chat_id: int, data: dict) -> None:
-    """
-    Лениво дёргает suggest.py. Если модуля/функции нет — просто пропускает.
-    """
-    try:
-        from workers.live import suggest  # type: ignore
-    except Exception as e:
-        logger.debug("suggest.py недоступен (%s) — пропускаю LLM-подсказку.", e)
+async def process_message(msg_data: dict, chat_meta: dict) -> None:
+    """Обрабатывает уже сохранённое сообщение (LLM-подсказка, авто-ответ)."""
+    chat_id = msg_data["chat_id"]
+    message_id = msg_data["message_id"]
+    
+    if msg_data["is_outgoing"]:
         return
 
-    fn = getattr(suggest, "generate_suggestion", None) or getattr(suggest, "suggest_for_message", None)
-    if not callable(fn):
-        logger.debug("В suggest.py нет generate_suggestion — пропускаю.")
-        return
+    _bump_session_received()
+    logger.info("polling: найдено новое сообщение id=%s (chat=%s)", message_id, chat_id)
 
-    try:
-        await fn(chat_id=chat_id, message_id=data["message_id"])
-        logger.info("LLM-подсказка для chat=%s msg=%s сгенерирована.", chat_id, data["message_id"])
-    except Exception as e:
-        logger.exception("generate_suggestion упал для chat=%s: %s", chat_id, e)
+    # LLM Suggest
+    if os.getenv("LIVE_LLM_SUGGEST", "1").strip() == "1":
+        try:
+            from workers.live import suggest
+            fn = getattr(suggest, "generate_suggestion", None) or getattr(suggest, "suggest_for_message", None)
+            if callable(fn):
+                await fn(chat_id=chat_id, message_id=message_id)
+        except Exception as e:
+            logger.exception("suggest упал для chat=%s: %s", chat_id, e)
+
+    # Auto-reply
+    auto_reply_env = os.getenv("LIVE_AUTO_REPLY", "0").strip() == "1"
+    if auto_reply_env and chat_meta.get("auto_reply"):
+        try:
+            from workers.live import sender
+            fn = getattr(sender, "auto_reply_to_message", None)
+            if callable(fn):
+                await fn(chat_id=chat_id, message_id=message_id)
+        except Exception as e:
+            logger.exception("auto_reply упал для chat=%s: %s", chat_id, e)
 
 
-async def _try_auto_reply(chat_id: int, data: dict) -> None:
+# === POLLING ===
+
+async def polling_loop(client: Any, stop_event: asyncio.Event) -> None:
     """
-    Лениво дёргает sender.py для авто-ответа.
+    Основной цикл: раз в 5 секунд опрашивает get_messages для всех enabled чатов.
     """
-    try:
-        from workers.live import sender  # type: ignore
-    except Exception as e:
-        logger.debug("sender.py недоступен (%s) — пропускаю авто-ответ.", e)
-        return
+    logger.info("handler.polling_loop: запущен (интервал 5с).")
+    
+    while not stop_event.is_set():
+        try:
+            chats = _get_monitored_chats()
+            for chat in chats:
+                if stop_event.is_set():
+                    break
+                    
+                chat_id = chat["chat_id"]
+                entity = await client.get_entity(chat_id)
+                if entity is None:
+                    continue
+                
+                # Получаем последние 5 сообщений
+                messages = await client.get_messages(entity, limit=5)
+                if not messages:
+                    continue
 
-    fn = getattr(sender, "auto_reply_to_message", None)
-    if not callable(fn):
-        logger.debug("В sender.py нет auto_reply_to_message — пропускаю.")
-        return
+                # В хронологическом порядке (старые первыми)
+                for msg in reversed(messages):
+                    if stop_event.is_set():
+                        break
+                    
+                    if not msg.message:
+                        continue
 
-    try:
-        await fn(chat_id=chat_id, message_id=data["message_id"])
-        logger.info("Авто-ответ отправлен в chat=%s msg=%s.", chat_id, data["message_id"])
-    except Exception as e:
-        logger.exception("auto_reply_to_message упал для chat=%s: %s", chat_id, e)
+                    # Проверяем, есть ли уже в БД
+                    if _is_message_saved(chat_id, msg.id):
+                        continue
 
+                    # Проверяем keywords
+                    if not _check_keywords(msg.message, chat.get("keywords")):
+                        _save_live_message(
+                            chat_id=chat_id, message_id=msg.id, author_id=None,
+                            author_username=None, author_first_name=None,
+                            text=msg.message, is_outgoing=0, reply_to_msg_id=None,
+                            sent_at=msg.date, force_read=True
+                        )
+                        continue
 
-# === РЕГИСТРАЦИЯ ===
+                    # Сохраняем
+                    sender = None
+                    try:
+                        sender = await msg.get_sender()
+                    except Exception:
+                        pass
+                        
+                    ok = _save_live_message(
+                        chat_id=chat_id, message_id=msg.id,
+                        author_id=getattr(sender, "id", None) if sender else None,
+                        author_username=getattr(sender, "username", None) if sender else None,
+                        author_first_name=getattr(sender, "first_name", None) if sender else None,
+                        text=msg.message, is_outgoing=1 if getattr(msg, "out", False) else 0,
+                        reply_to_msg_id=getattr(getattr(msg, "reply_to", None), "reply_to_msg_id", None),
+                        sent_at=msg.date,
+                    )
+                    
+                    if ok:
+                        _touch_monitored_chat(chat_id, msg.date)
+                        msg_data = {
+                            "chat_id": chat_id,
+                            "message_id": msg.id,
+                            "text": msg.message,
+                            "is_outgoing": 1 if getattr(msg, "out", False) else 0,
+                        }
+                        # Запускаем обработку в фоне
+                        asyncio.create_task(process_message(msg_data, chat))
 
-def register_handlers(client: Any) -> None:
-    """
-    Регистрирует обработчик NewMessage у LiveTelethonClient.
-    Вызывается из main.py после connect().
-    """
-    try:
-        from telethon import events  # type: ignore
-    except Exception as e:
-        logger.exception("Не удалось импортировать telethon.events: %s", e)
-        return
+        except Exception as e:
+            logger.exception("Ошибка в polling_loop: %s", e)
+            
+        # Ожидаем 5 секунд или прерываемся при stop_event
+        try:
+            await asyncio.wait_for(stop_event.wait(), timeout=5.0)
+        except asyncio.TimeoutError:
+            pass
 
-    try:
-        # incoming=True, outgoing=True — слушаем и то, и другое
-        # (исходящие тоже фиксируем, чтобы видеть ответы оператора из Telegram-клиента).
-        event_builder = events.NewMessage(incoming=True, outgoing=True)
-        client.add_event_handler(event_builder, on_new_message)
-        logger.info("handler.py: зарегистрирован on_new_message на events.NewMessage.")
-    except Exception as e:
-        logger.exception("register_handlers упал: %s", e)
+    logger.info("handler.polling_loop: остановлен.")
