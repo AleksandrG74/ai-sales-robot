@@ -96,7 +96,7 @@ def _detect_role_safe(normalized: list[dict]) -> str:
         return "curious"
 
     try:
-        result = fn(normalized)
+        result = fn(normalized, client_key=None)
         # функция может вернуть str или кортеж (role, something)
         if isinstance(result, str) and result.strip():
             return result.strip()
@@ -120,7 +120,7 @@ def _detect_aggression_safe(normalized: list[dict]) -> str:
         return "low"
 
     try:
-        result = fn(normalized)
+        result = fn(normalized, client_key=None)
         if isinstance(result, str) and result.strip():
             return result.strip()
         if isinstance(result, tuple) and result and isinstance(result[0], str):

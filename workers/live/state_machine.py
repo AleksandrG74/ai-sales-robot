@@ -40,6 +40,7 @@ logger = logging.getLogger("live-worker.state_machine")
 STATE_IDLE = "idle"
 STATE_GENERATING = "generating"
 STATE_AWAITING_OPERATOR = "awaiting_operator"
+STATE_PAUSED = "paused"
 STATE_REPLIED = "replied"
 
 # Таймаут «зависших» состояний (сек). Настраивается через env.
