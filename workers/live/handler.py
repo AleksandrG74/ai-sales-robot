@@ -150,7 +150,7 @@ def _check_keywords(text: str, keywords: list) -> bool:
     return any(kw.strip().lower() in t_lower for kw in keywords if isinstance(kw, str) and kw.strip())
 
 
-async def handle_new_message(msg, chat_meta: dict) -> None:
+async def handle_new_message(client, msg, chat_meta: dict) -> None:
     """Обработка одного сообщения (LLM, авто-ответ)."""
     chat_id = msg.chat_id
     message_id = msg.id
@@ -175,7 +175,7 @@ async def handle_new_message(msg, chat_meta: dict) -> None:
             from workers.live import sender
             fn = getattr(sender, "auto_reply_to_message", None)
             if callable(fn):
-                await fn(chat_id=chat_id, message_id=message_id)
+                await fn(client=client, chat_id=chat_id, message_id=message_id)
         except Exception as e:
             logger.exception("auto_reply упал для chat=%s: %s", chat_id, e)
 
@@ -263,7 +263,7 @@ async def polling_loop(client: Any, stop_event: asyncio.Event) -> None:
                     if ok:
                         _touch_monitored_chat(chat_id, msg.date)
                         # Запускаем обработку в фоне
-                        asyncio.create_task(handle_new_message(msg, chat))
+                        asyncio.create_task(handle_new_message(client, msg, chat))
 
         except Exception as e:
             logger.exception("Ошибка в polling_loop: %s", e)

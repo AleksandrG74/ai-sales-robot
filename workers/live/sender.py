@@ -170,7 +170,7 @@ async def send_operator_reply(
     return {"ok": True, "message_id": msg_id, "error": None}
 
 
-async def auto_reply_to_message(chat_id: int, message_id: int) -> bool:
+async def auto_reply_to_message(client, chat_id: int, message_id: int) -> bool:
     """
     Авто-ответ: достаёт llm_suggestion у указанного сообщения
     и отправляет его как ответ (reply_to=message_id).
@@ -182,15 +182,15 @@ async def auto_reply_to_message(chat_id: int, message_id: int) -> bool:
         logger.debug("auto_reply_to_message: нет llm_suggestion для chat=%s msg=%s", chat_id, message_id)
         return False
 
-    if _CLIENT is None:
-        logger.error("auto_reply_to_message: клиент не установлен.")
+    if client is None:
+        logger.error("auto_reply_to_message: клиент не передан.")
         return False
 
-    entity = await _CLIENT.get_entity(chat_id)
+    entity = await client.get_entity(chat_id)
     if entity is None:
         return False
 
-    sent = await _CLIENT.send_message(entity, suggestion, reply_to=message_id)
+    sent = await client.send_message(entity, suggestion, reply_to=message_id)
     if sent is None:
         return False
 
