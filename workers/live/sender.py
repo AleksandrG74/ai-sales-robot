@@ -19,6 +19,8 @@
 """
 
 import logging
+import time
+from telethon.errors import FloodWaitError
 import os
 from datetime import datetime, timezone
 from typing import Any, Optional
@@ -190,7 +192,19 @@ async def auto_reply_to_message(client, chat_id: int, message_id: int) -> bool:
     if entity is None:
         return False
 
-    sent = await client.send_message(entity, suggestion, reply_to=message_id)
+    try:
+        sent = await client.send_message(entity, suggestion, reply_to=message_id)
+    except FloodWaitError as e:
+        logger.warning("FloodWait %s сек. Пропускаю отправку (auto_reply).", e.seconds)
+        # Запоминаем время бана в state_machine
+        try:
+            from workers.live.state_machine import get_fsm, STATE_PAUSED
+            fsm = await get_fsm()
+            await fsm.set(chat_id, STATE_PAUSED, reason="flood_wait", until=time.time() + e.seconds)
+        except Exception as ex:
+            logger.warning("Не удалось обновить state_machine: %s", ex)
+        return False
+        
     if sent is None:
         return False
 

@@ -214,6 +214,25 @@ async def polling_loop(client: Any, stop_event: asyncio.Event) -> None:
                     continue
 
                 # В хронологическом порядке (старые первыми)
+                # Проверяем, не в бане ли чат (FloodWait)
+                is_flooded = False
+                try:
+                    from workers.live.state_machine import get_fsm, STATE_PAUSED
+                    fsm = await get_fsm()
+                    st = await fsm.get(chat_id)
+                    if st.get("state") == STATE_PAUSED and st.get("data", {}).get("reason") == "flood_wait":
+                        until = st.get("data", {}).get("until", 0)
+                        import time
+                        if time.time() < until:
+                            is_flooded = True
+                except Exception as ex:
+                    logger.warning("Не удалось проверить state_machine: %s", ex)
+
+                if is_flooded:
+                    logger.info("Чат %s на FloodWait, пропускаю опрос.", chat_id)
+                    continue
+
+                # В хронологическом порядке (старые первыми)
                 for msg in reversed(messages):
                     if stop_event.is_set():
                         break
