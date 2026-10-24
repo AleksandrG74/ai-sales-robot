@@ -29,7 +29,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 from web.backend import queries as q
-from auth import verify_credentials
+from web.backend.auth import verify_credentials
 
 logger = logging.getLogger("web-backend.pages")
 

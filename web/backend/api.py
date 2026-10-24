@@ -32,7 +32,7 @@ from web.backend import queries as q
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 import traceback
-from auth import verify_credentials
+from web.backend.auth import verify_credentials
 
 logger = logging.getLogger("web-backend.api")
 
