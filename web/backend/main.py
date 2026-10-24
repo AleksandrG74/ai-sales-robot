@@ -108,8 +108,8 @@ except Exception as e:
 
 try:
     from web.backend import api, pages
-    app.include_router(api.router, prefix="/api", tags=["api"], dependencies=[Depends(verify_credentials)])
-    app.include_router(pages.router, tags=["pages"], dependencies=[Depends(verify_credentials)])
+    app.include_router(api.router, prefix="/api", tags=["api"])
+    app.include_router(pages.router, tags=["pages"])
     logger.info("Роутеры api и pages подключены.")
 except Exception as e:
     logger.exception("Не удалось подключить роутеры api/pages: %s", e)

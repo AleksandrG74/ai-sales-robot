@@ -24,7 +24,7 @@ import os
 from pathlib import Path
 from typing import Any, Optional
 
-from fastapi import APIRouter, Form, HTTPException, Query
+from fastapi import APIRouter, Form, HTTPException, Query, Depends
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 
@@ -32,6 +32,7 @@ from web.backend import queries as q
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 import traceback
+from auth import verify_credentials
 
 logger = logging.getLogger("web-backend.api")
 
@@ -96,7 +97,7 @@ def ping() -> dict:
 
 # === STATUS / STATS ===
 
-@router.get("/status")
+@router.get("/status", dependencies=[Depends(verify_credentials)])
 def api_status() -> dict:
     try:
         return q.get_system_status()
@@ -105,7 +106,7 @@ def api_status() -> dict:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/stats")
+@router.get("/stats", dependencies=[Depends(verify_credentials)])
 def api_stats() -> dict:
     try:
         return q.get_overall_stats()
@@ -116,7 +117,7 @@ def api_stats() -> dict:
 
 # === DIALOGUES ===
 
-@router.get("/dialogues")
+@router.get("/dialogues", dependencies=[Depends(verify_credentials)])
 def api_dialogues(
     limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
@@ -138,7 +139,7 @@ def api_dialogues(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/dialogues/{dialogue_id}")
+@router.get("/dialogues/{dialogue_id}", dependencies=[Depends(verify_credentials)])
 def api_dialogue(dialogue_id: str) -> dict:
     try:
         d = q.get_dialogue(dialogue_id)
@@ -152,7 +153,7 @@ def api_dialogue(dialogue_id: str) -> dict:
 
 # === STRATEGIES ===
 
-@router.get("/strategies")
+@router.get("/strategies", dependencies=[Depends(verify_credentials)])
 def api_strategies() -> dict:
     try:
         items = q.get_strategies()
@@ -162,7 +163,7 @@ def api_strategies() -> dict:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/strategies/{strategy_id}")
+@router.get("/strategies/{strategy_id}", dependencies=[Depends(verify_credentials)])
 def api_strategy(strategy_id: int) -> dict:
     try:
         s = q.get_strategy(strategy_id)
@@ -174,7 +175,7 @@ def api_strategy(strategy_id: int) -> dict:
     return s
 
 
-@router.get("/strategies/{strategy_id}/versions")
+@router.get("/strategies/{strategy_id}/versions", dependencies=[Depends(verify_credentials)])
 def api_strategy_versions(strategy_id: int) -> dict:
     try:
         # Проверим, что сама стратегия существует
@@ -190,7 +191,7 @@ def api_strategy_versions(strategy_id: int) -> dict:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/strategies/{strategy_id}/rollback")
+@router.post("/strategies/{strategy_id}/rollback", dependencies=[Depends(verify_credentials)])
 def api_strategy_rollback(strategy_id: int, body: RollbackRequest) -> dict:
     try:
         s = q.get_strategy(strategy_id)
@@ -229,7 +230,7 @@ def api_strategy_rollback(strategy_id: int, body: RollbackRequest) -> dict:
 
 # === BRIDGES / WORDS / RUNS ===
 
-@router.get("/bridges")
+@router.get("/bridges", dependencies=[Depends(verify_credentials)])
 def api_bridges(limit: int = Query(20, ge=1, le=500)) -> dict:
     try:
         items = q.get_bridges(limit=limit)
@@ -239,7 +240,7 @@ def api_bridges(limit: int = Query(20, ge=1, le=500)) -> dict:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/words")
+@router.get("/words", dependencies=[Depends(verify_credentials)])
 def api_words(limit: int = Query(20, ge=1, le=500)) -> dict:
     try:
         items = q.get_word_stats(limit=limit)
@@ -249,7 +250,7 @@ def api_words(limit: int = Query(20, ge=1, le=500)) -> dict:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/runs")
+@router.get("/runs", dependencies=[Depends(verify_credentials)])
 def api_runs(limit: int = Query(10, ge=1, le=200)) -> dict:
     try:
         items = q.get_runs(limit=limit)
@@ -261,7 +262,7 @@ def api_runs(limit: int = Query(10, ge=1, le=200)) -> dict:
 
 # === LIVE ===
 
-@router.get("/live/chats")
+@router.get("/live/chats", dependencies=[Depends(verify_credentials)])
 def api_live_chats(enabled_only: bool = Query(False)) -> dict:
     try:
         items = q.get_live_chats(enabled_only=enabled_only)
@@ -271,7 +272,7 @@ def api_live_chats(enabled_only: bool = Query(False)) -> dict:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/live/chats/{chat_id}")
+@router.get("/live/chats/{chat_id}", dependencies=[Depends(verify_credentials)])
 def api_live_chat(chat_id: int) -> dict:
     try:
         c = q.get_live_chat(chat_id)
@@ -283,7 +284,7 @@ def api_live_chat(chat_id: int) -> dict:
     return c
 
 
-@router.get("/live/chats/{chat_id}/messages")
+@router.get("/live/chats/{chat_id}/messages", dependencies=[Depends(verify_credentials)])
 def api_live_messages(
     chat_id: int,
     limit: int = Query(50, ge=1, le=500),
@@ -298,7 +299,7 @@ def api_live_messages(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/live/unread_count")
+@router.get("/live/unread_count", dependencies=[Depends(verify_credentials)])
 def api_live_unread_count() -> dict:
     try:
         return {"unread": q.count_unread_live_messages()}
@@ -307,7 +308,7 @@ def api_live_unread_count() -> dict:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/live/chats/{chat_id}/send")
+@router.post("/live/chats/{chat_id}/send", dependencies=[Depends(verify_credentials)])
 async def api_live_send(chat_id: int, body: SendMessageRequest) -> dict:
     """
     Отправка сообщения от имени user-account через workers.live.sender.
@@ -341,7 +342,7 @@ async def api_live_send(chat_id: int, body: SendMessageRequest) -> dict:
     return result
 
 
-@router.post("/live/chats/{chat_id}/suggest")
+@router.post("/live/chats/{chat_id}/suggest", dependencies=[Depends(verify_credentials)])
 async def api_live_suggest(chat_id: int, message_id: int = Query(..., ge=1)) -> dict:
     """
     Генерация LLM-подсказки для указанного сообщения.
@@ -376,7 +377,7 @@ async def api_live_suggest(chat_id: int, message_id: int = Query(..., ge=1)) -> 
 
 # === CONFIG: product ===
 
-@router.get("/config/product")
+@router.get("/config/product", dependencies=[Depends(verify_credentials)])
 def api_config_product_get() -> dict:
     path = _configs_dir() / "product.json"
     data = _read_json(path)
@@ -385,7 +386,7 @@ def api_config_product_get() -> dict:
     return data
 
 
-@router.post("/config/product")
+@router.post("/config/product", dependencies=[Depends(verify_credentials)])
 def api_config_product_set(body: ConfigUpdateRequest) -> dict:
     path = _configs_dir() / "product.json"
     if not _write_json(path, body.data):
@@ -396,7 +397,7 @@ def api_config_product_set(body: ConfigUpdateRequest) -> dict:
 
 # === CONFIG: goal ===
 
-@router.get("/config/goal")
+@router.get("/config/goal", dependencies=[Depends(verify_credentials)])
 def api_config_goal_get() -> dict:
     path = _configs_dir() / "goal.json"
     data = _read_json(path)
@@ -405,7 +406,7 @@ def api_config_goal_get() -> dict:
     return data
 
 
-@router.post("/config/goal")
+@router.post("/config/goal", dependencies=[Depends(verify_credentials)])
 def api_config_goal_set(body: ConfigUpdateRequest) -> dict:
     path = _configs_dir() / "goal.json"
     if not _write_json(path, body.data):
@@ -423,7 +424,7 @@ def _parse_features(raw: str) -> list:
     return [ln.strip() for ln in raw.splitlines() if ln.strip()]
 
 
-@router.post("/config/product/form")
+@router.post("/config/product/form", dependencies=[Depends(verify_credentials)])
 def api_config_product_form(
     name: str = Form(""),
     description: str = Form(""),
@@ -455,7 +456,7 @@ def api_config_product_form(
         return RedirectResponse(url="/config?error=product+save+failed", status_code=303)
 
 
-@router.post("/config/goal/form")
+@router.post("/config/goal/form", dependencies=[Depends(verify_credentials)])
 def api_config_goal_form(
     goal: str = Form(""),
     success_criteria: str = Form(""),

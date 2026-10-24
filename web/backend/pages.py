@@ -24,11 +24,12 @@ import logging
 from pathlib import Path
 from typing import Any, Optional
 
-from fastapi import APIRouter, Request, HTTPException, Query, Request
+from fastapi import APIRouter, Request, HTTPException, Query, Request, Depends
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 from web.backend import queries as q
+from auth import verify_credentials
 
 logger = logging.getLogger("web-backend.pages")
 
@@ -258,7 +259,7 @@ def page_config(
         goal_json=json.dumps(goal, ensure_ascii=False, indent=2),
     )
 
-@router.get("/clients")
+@router.get("/clients", dependencies=[Depends(verify_credentials)])
 async def clients_page(request: Request):
     from core.database import get_session
     from sqlalchemy import text
@@ -297,7 +298,7 @@ async def clients_page(request: Request):
         {"request": request, "clients": clients, "active_page": "clients"}
     )
 
-@router.get("/live")
+@router.get("/live", dependencies=[Depends(verify_credentials)])
 async def live_page(request: Request):
     from core.database import get_session
     from sqlalchemy import text
@@ -351,7 +352,7 @@ def _resolve_log_path(service: str):
     return candidate
 
 
-@router.get("/logs")
+@router.get("/logs", dependencies=[Depends(verify_credentials)])
 async def logs_page(request: Request, service: str = "live-worker"):
     from pathlib import Path as _Path  # локальный импорт, если Path не в scope
 
