@@ -542,8 +542,7 @@ def _load_demo_system_prompt() -> str:
 
     parts.append("Если пользователь спрашивает о том, чего ты не знаешь — вежливо предложи уточнить у менеджера.")
 
-    prompt = "
-".join(parts)
+    prompt = "\n".join(parts)
     _DEMO_SYSTEM_PROMPT_CACHE["text"] = prompt
     return prompt
 
