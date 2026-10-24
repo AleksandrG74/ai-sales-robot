@@ -7,6 +7,7 @@
 - detect_stage() — оттуда.
 - build_prompt(messages, role, aggression_level, token_group, stage) -> BuiltPrompt — оттуда.
 - BuiltPrompt — оттуда (dataclass с полями messages, system, prompt_text, ...).
+    "Твоё имя — Салем. Представляйся Салемом, если спрашивают имя.",
 
 Переиспользует workers/dialogue/agent.py:
 - detect_role_heuristic(messages)
