@@ -575,7 +575,7 @@ async def demo_chat(body: DemoChatRequest):
             
             user_msg = LiveMessage(
                 chat_id=DEMO_CHAT_ID,
-                message_id=0, # Упрощенно, можно генерировать уникальный
+                message_id=int(__import__('time').time() * 1000) % 1000000000,
                 text=body.message,
                 is_outgoing=0,
                 read_by_operator=0
@@ -612,7 +612,7 @@ async def demo_chat(body: DemoChatRequest):
         with get_session() as session:
             bot_msg = LiveMessage(
                 chat_id=DEMO_CHAT_ID,
-                message_id=0,
+                message_id=(int(__import__('time').time() * 1000) % 1000000000) + 1,
                 text=reply_text,
                 is_outgoing=1,
                 read_by_operator=1
