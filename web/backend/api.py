@@ -29,6 +29,9 @@ from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 
 from web.backend import queries as q
+from fastapi import APIRouter, Request
+from fastapi.responses import JSONResponse
+import traceback
 
 logger = logging.getLogger("web-backend.api")
 
@@ -474,3 +477,105 @@ def api_config_goal_form(
     except Exception as e:
         logger.exception("goal form save упал: %s", e)
         return RedirectResponse(url="/config?error=goal+save+failed", status_code=303)
+
+
+# === DEMO CHAT (открытый эндпоинт, без Basic Auth) ===
+class DemoChatRequest(BaseModel):
+    message: str
+
+
+_DEMO_SYSTEM_PROMPT_CACHE = {"text": None}
+
+
+def _load_demo_system_prompt() -> str:
+    """Собирает упрощённый системный промпт из configs/product.json и configs/goal.json."""
+    if _DEMO_SYSTEM_PROMPT_CACHE["text"] is not None:
+        return _DEMO_SYSTEM_PROMPT_CACHE["text"]
+
+    base_dir = Path(__file__).resolve().parent.parent.parent  # /c/Projects/ai-sales-robot
+    product_path = base_dir / "configs" / "product.json"
+    goal_path = base_dir / "configs" / "goal.json"
+
+    product_data = {}
+    goal_data = {}
+    try:
+        if product_path.exists():
+            product_data = json.loads(product_path.read_text(encoding="utf-8"))
+    except Exception as e:
+        print(f"[demo/chat] product.json read error: {e}")
+
+    try:
+        if goal_path.exists():
+            goal_data = json.loads(goal_path.read_text(encoding="utf-8"))
+    except Exception as e:
+        print(f"[demo/chat] goal.json read error: {e}")
+
+    parts = [
+        "Ты — вежливый и профессиональный ассистент по продажам компании.",
+        "Отвечай кратко, по делу, дружелюбно. Не выдумывай факты о продукте, которых нет ниже.",
+    ]
+
+    if product_data:
+        name = product_data.get("name") or product_data.get("title")
+        desc = product_data.get("description") or product_data.get("short_description")
+        features = product_data.get("features") or product_data.get("advantages")
+        price = product_data.get("price")
+        if name:
+            parts.append(f"Продукт: {name}.")
+        if desc:
+            parts.append(f"Описание: {desc}")
+        if features:
+            if isinstance(features, (list, tuple)):
+                parts.append("Ключевые преимущества: " + "; ".join(str(x) for x in features) + ".")
+            else:
+                parts.append(f"Ключевые преимущества: {features}")
+        if price:
+            parts.append(f"Цена: {price}")
+
+    if goal_data:
+        goal = goal_data.get("goal") or goal_data.get("objective") or goal_data.get("target")
+        tone = goal_data.get("tone") or goal_data.get("style")
+        if goal:
+            parts.append(f"Цель диалога: {goal}")
+        if tone:
+            parts.append(f"Тон общения: {tone}")
+
+    parts.append("Если пользователь спрашивает о том, чего ты не знаешь — вежливо предложи уточнить у менеджера.")
+
+    prompt = "
+".join(parts)
+    _DEMO_SYSTEM_PROMPT_CACHE["text"] = prompt
+    return prompt
+
+
+
+@router.post("/demo/chat")
+async def demo_chat(payload: DemoChatRequest):
+    """Открытый демо-эндпоинт: принимает сообщение, возвращает ответ LLM."""
+    try:
+        user_message = (payload.message or "").strip()
+        if not user_message:
+            return JSONResponse({"reply": "Пожалуйста, напишите сообщение."}, status_code=200)
+
+        if len(user_message) > 500:
+            user_message = user_message[:500]
+
+        system_prompt = _load_demo_system_prompt()
+
+        from core.llm import LLMClient
+        client = LLMClient()
+        reply = await client.chat(system_prompt=system_prompt, user_message=user_message)
+        if reply is None:
+            reply = ""
+        reply = str(reply).strip()
+        if not reply:
+            reply = "Извините, не удалось сформировать ответ. Попробуйте переформулировать вопрос."
+
+        return JSONResponse({"reply": reply})
+    except Exception as e:
+        print(f"[/api/demo/chat] ERROR: {e}")
+        print(traceback.format_exc())
+        return JSONResponse(
+            status_code=500,
+            content={"detail": str(e), "traceback": traceback.format_exc()},
+        )

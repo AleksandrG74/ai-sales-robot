@@ -156,3 +156,47 @@ async def demo_open_page():
     if demo_path.exists():
         return _HTMLResponse(content=demo_path.read_text(encoding="utf-8"))
     return _HTMLResponse(content="<h1>Demo page not found</h1>", status_code=404)
+
+
+# === DEMO CHAT open override (без Basic Auth) ===
+# Регистрируется ПОСЛЕ include_router(api.router, ...), чтобы не наследовать Depends.
+from fastapi import Body as _Body
+from fastapi.responses import JSONResponse as _JSONResponse
+
+@app.post("/api/demo/chat", include_in_schema=False)
+async def demo_chat_open(payload: dict = _Body(...)):
+    import json as _json
+    from pathlib import Path as _Path
+
+    user_message = str(payload.get("message", "")).strip()[:500]
+    if not user_message:
+        return _JSONResponse({"reply": "Пожалуйста, напишите сообщение."})
+
+    # Формируем промпт
+    base_dir = _Path(__file__).resolve().parent.parent.parent
+    parts = [
+        "Ты — вежливый и профессиональный ассистент по продажам компании.",
+        "Отвечай кратко, по делу, дружелюбно.",
+    ]
+    for fname, label in (("product.json", "Продукт"), ("goal.json", "Цель")):
+        fp = base_dir / "configs" / fname
+        if fp.exists():
+            try:
+                data = _json.loads(fp.read_text(encoding="utf-8"))
+                parts.append(f"{label}: {_json.dumps(data, ensure_ascii=False)[:800]}")
+            except Exception:
+                pass
+    system_prompt = "\n".join(parts)
+
+    try:
+        from core.llm import LLMClient
+        client = LLMClient()
+        reply = await client.chat(system_prompt=system_prompt, user_message=user_message)
+        reply = (str(reply) if reply is not None else "").strip()
+        if not reply:
+            reply = "Извините, не удалось сформировать ответ."
+    except Exception as e:
+        print(f"[/api/demo/chat] LLM error: {e}")
+        reply = "Извините, робот временно недоступен. Попробуйте позже."
+
+    return _JSONResponse({"reply": reply})
