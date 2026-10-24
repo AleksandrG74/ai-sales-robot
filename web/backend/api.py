@@ -551,17 +551,40 @@ def _load_demo_system_prompt() -> str:
 
 @router.post("/demo/chat")
 async def demo_chat(body: DemoChatRequest):
-    """Открытый демо-эндпоинт: принимает сообщение, возвращает ответ LLM."""
+    """Демо-эндпоинт: сохраняет диалог в БД (Demo Sandbox) и отвечает через LLM."""
     import traceback
     from fastapi.responses import JSONResponse
     
+    DEMO_CHAT_ID = -999999999
+    DEMO_CHAT_TITLE = "Demo Sandbox"
+    
     try:
         from core.llm import LLMClient
+        from core.database import get_session, MonitoredChat, LiveMessage
+        from sqlalchemy import select
         
-        # Формируем system prompt (простой текст)
+        # 1. Сохраняем сообщение пользователя и создаём чат (если надо)
+        with get_session() as session:
+            chat = session.execute(
+                select(MonitoredChat).where(MonitoredChat.chat_id == DEMO_CHAT_ID).limit(1)
+            ).scalar_one_or_none()
+            if not chat:
+                chat = MonitoredChat(chat_id=DEMO_CHAT_ID, chat_title=DEMO_CHAT_TITLE, enabled=1)
+                session.add(chat)
+                session.commit()
+            
+            user_msg = LiveMessage(
+                chat_id=DEMO_CHAT_ID,
+                message_id=0, # Упрощенно, можно генерировать уникальный
+                text=body.message,
+                is_outgoing=0,
+                read_by_operator=0
+            )
+            session.add(user_msg)
+            session.commit()
+        
+        # 2. Формируем промпт
         prompt_text = "Ты — опытный менеджер по продажам. Отвечай кратко и по делу."
-        
-        # Пытаемся прочитать конфиги (если есть)
         try:
             from workers.dialogue.prompt_builder import load_product, load_goal
             product = load_product() or {}
@@ -580,17 +603,22 @@ async def demo_chat(body: DemoChatRequest):
             {"role": "user", "content": body.message}
         ]
         
+        # 3. Вызов LLM
         llm = LLMClient()
         response = await llm.chat(messages=messages)
+        reply_text = response.content if hasattr(response, "content") else str(response)
         
-        # Извлекаем текст ответа
-        reply_text = ""
-        if hasattr(response, "content"):
-            reply_text = response.content
-        elif isinstance(response, dict) and "content" in response:
-            reply_text = response["content"]
-        else:
-            reply_text = str(response)
+        # 4. Сохраняем ответ бота
+        with get_session() as session:
+            bot_msg = LiveMessage(
+                chat_id=DEMO_CHAT_ID,
+                message_id=0,
+                text=reply_text,
+                is_outgoing=1,
+                read_by_operator=1
+            )
+            session.add(bot_msg)
+            session.commit()
             
         return {"reply": reply_text}
         
