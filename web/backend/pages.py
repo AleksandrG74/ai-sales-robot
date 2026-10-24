@@ -76,7 +76,7 @@ def _render(request: Request, name: str, **ctx: Any) -> HTMLResponse:
 
 # === DASHBOARD ===
 
-@router.get("/", response_class=HTMLResponse)
+@router.get("/", response_class=HTMLResponse, dependencies=[Depends(verify_credentials)])
 def page_dashboard(request: Request) -> HTMLResponse:
     try:
         status = q.get_system_status()
@@ -97,7 +97,7 @@ def page_dashboard(request: Request) -> HTMLResponse:
 
 # === DIALOGUES ===
 
-@router.get("/dialogues", response_class=HTMLResponse)
+@router.get("/dialogues", response_class=HTMLResponse, dependencies=[Depends(verify_credentials)])
 def page_dialogues(
     request: Request,
     limit: int = Query(50, ge=1, le=500),
@@ -123,7 +123,7 @@ def page_dialogues(
     )
 
 
-@router.get("/dialogues/{dialogue_id}", response_class=HTMLResponse)
+@router.get("/dialogues/{dialogue_id}", response_class=HTMLResponse, dependencies=[Depends(verify_credentials)])
 def page_dialogue(request: Request, dialogue_id: str) -> HTMLResponse:
     try:
         d = q.get_dialogue(dialogue_id)
@@ -137,7 +137,7 @@ def page_dialogue(request: Request, dialogue_id: str) -> HTMLResponse:
 
 # === STRATEGIES ===
 
-@router.get("/strategies", response_class=HTMLResponse)
+@router.get("/strategies", response_class=HTMLResponse, dependencies=[Depends(verify_credentials)])
 def page_strategies(request: Request) -> HTMLResponse:
     try:
         strategies = q.get_strategies()
@@ -164,7 +164,7 @@ def page_strategies(request: Request) -> HTMLResponse:
 
 # === BRIDGES ===
 
-@router.get("/bridges", response_class=HTMLResponse)
+@router.get("/bridges", response_class=HTMLResponse, dependencies=[Depends(verify_credentials)])
 def page_bridges(request: Request, limit: int = Query(50, ge=1, le=500)) -> HTMLResponse:
     try:
         bridges = q.get_bridges(limit=limit)
@@ -176,7 +176,7 @@ def page_bridges(request: Request, limit: int = Query(50, ge=1, le=500)) -> HTML
 
 # === WORDS ===
 
-@router.get("/words", response_class=HTMLResponse)
+@router.get("/words", response_class=HTMLResponse, dependencies=[Depends(verify_credentials)])
 def page_words(request: Request, limit: int = Query(50, ge=1, le=500)) -> HTMLResponse:
     try:
         words = q.get_word_stats(limit=limit)
@@ -188,7 +188,7 @@ def page_words(request: Request, limit: int = Query(50, ge=1, le=500)) -> HTMLRe
 
 # === RUNS ===
 
-@router.get("/runs", response_class=HTMLResponse)
+@router.get("/runs", response_class=HTMLResponse, dependencies=[Depends(verify_credentials)])
 def page_runs(request: Request, limit: int = Query(30, ge=1, le=200)) -> HTMLResponse:
     try:
         runs = q.get_runs(limit=limit)
@@ -200,7 +200,7 @@ def page_runs(request: Request, limit: int = Query(30, ge=1, le=200)) -> HTMLRes
 
 # === LIVE ===
 
-@router.get("/live", response_class=HTMLResponse)
+@router.get("/live", response_class=HTMLResponse, dependencies=[Depends(verify_credentials)])
 def page_live(request: Request) -> HTMLResponse:
     try:
         chats = q.get_live_chats()
@@ -211,7 +211,7 @@ def page_live(request: Request) -> HTMLResponse:
     return _render(request, "live.html", chats=chats, unread=unread)
 
 
-@router.get("/live/{chat_id}", response_class=HTMLResponse)
+@router.get("/live/{chat_id}", response_class=HTMLResponse, dependencies=[Depends(verify_credentials)])
 def page_live_chat(
     request: Request,
     chat_id: int,
@@ -238,7 +238,7 @@ def page_live_chat(
 
 # === CONFIG ===
 
-@router.get("/config", response_class=HTMLResponse)
+@router.get("/config", response_class=HTMLResponse, dependencies=[Depends(verify_credentials)])
 def page_config(
     request: Request,
     saved: Optional[str] = Query(None),
