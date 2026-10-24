@@ -550,37 +550,50 @@ def _load_demo_system_prompt() -> str:
 
 
 @router.post("/demo/chat")
-async def demo_chat(payload: DemoChatRequest):
+async def demo_chat(body: DemoChatRequest):
     """Открытый демо-эндпоинт: принимает сообщение, возвращает ответ LLM."""
+    import traceback
+    from fastapi.responses import JSONResponse
+    
     try:
-        user_message = (payload.message or "").strip()
-        if not user_message:
-            return JSONResponse({"reply": "Пожалуйста, напишите сообщение."}, status_code=200)
-
-        if len(user_message) > 500:
-            user_message = user_message[:500]
-
-        system_prompt = _load_demo_system_prompt()
-
         from core.llm import LLMClient
-        client = LLMClient()
+        
+        # Формируем system prompt (простой текст)
+        prompt_text = "Ты — опытный менеджер по продажам. Отвечай кратко и по делу."
+        
+        # Пытаемся прочитать конфиги (если есть)
+        try:
+            from workers.dialogue.prompt_builder import load_product, load_goal
+            product = load_product() or {}
+            goal = load_goal() or {}
+            prod_name = product.get("name", "")
+            if prod_name:
+                prompt_text += f"\nМы продаём: {prod_name}."
+            goal_text = goal.get("goal", "")
+            if goal_text:
+                prompt_text += f"\nЦель диалога: {goal_text}."
+        except Exception:
+            pass
+        
         messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_message}
+            {"role": "system", "content": prompt_text},
+            {"role": "user", "content": body.message}
         ]
-        response = await client.chat(messages=messages)
-        reply = response.content if hasattr(response, 'content') else str(response)
-        if reply is None:
-            reply = ""
-        reply = str(reply).strip()
-        if not reply:
-            reply = "Извините, не удалось сформировать ответ. Попробуйте переформулировать вопрос."
-
-        return JSONResponse({"reply": reply})
+        
+        llm = LLMClient()
+        response = await llm.chat(messages=messages)
+        
+        # Извлекаем текст ответа
+        reply_text = ""
+        if hasattr(response, "content"):
+            reply_text = response.content
+        elif isinstance(response, dict) and "content" in response:
+            reply_text = response["content"]
+        else:
+            reply_text = str(response)
+            
+        return {"reply": reply_text}
+        
     except Exception as e:
-        print(f"[/api/demo/chat] ERROR: {e}")
-        print(traceback.format_exc())
-        return JSONResponse(
-            status_code=500,
-            content={"detail": str(e), "traceback": traceback.format_exc()},
-        )
+        err_str = f"Ошибка: {e}\n{traceback.format_exc()}"
+        return JSONResponse(status_code=500, content={"detail": err_str})
