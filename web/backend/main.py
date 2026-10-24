@@ -1,3 +1,4 @@
+from web.backend.auth import verify_credentials
 # web/backend/main.py
 """
 Точка входа web-backend (FastAPI + Jinja2 + StaticFiles).
@@ -19,7 +20,7 @@ import os
 import sys
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -107,8 +108,8 @@ except Exception as e:
 
 try:
     from web.backend import api, pages
-    app.include_router(api.router, prefix="/api", tags=["api"])
-    app.include_router(pages.router, tags=["pages"])
+    app.include_router(api.router, prefix="/api", tags=["api"], dependencies=[Depends(verify_credentials)])
+    app.include_router(pages.router, tags=["pages"], dependencies=[Depends(verify_credentials)])
     logger.info("Роутеры api и pages подключены.")
 except Exception as e:
     logger.exception("Не удалось подключить роутеры api/pages: %s", e)
@@ -143,3 +144,15 @@ if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("WEB_BACKEND_PORT", "8000"))
     uvicorn.run("web.backend.main:app", host="0.0.0.0", port=port, reload=False)
+
+# === Открытая демо-страница (без авторизации) ===
+# Регистрируется ПОСЛЕ include_router, поэтому не наследует Depends(verify_credentials).
+from fastapi.responses import HTMLResponse as _HTMLResponse
+from pathlib import Path as _Path
+
+@app.get("/demo", response_class=_HTMLResponse, include_in_schema=False)
+async def demo_open_page():
+    demo_path = _Path(__file__).resolve().parent / "templates" / "demo.html"
+    if demo_path.exists():
+        return _HTMLResponse(content=demo_path.read_text(encoding="utf-8"))
+    return _HTMLResponse(content="<h1>Demo page not found</h1>", status_code=404)

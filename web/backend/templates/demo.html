@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Sales Robot — Демо</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🤖</text></svg>">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: linear-gradient(135deg, #1a2332 0%, #0f172a 100%);
+            color: #ffffff;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            line-height: 1.6;
+        }
+
+        .demo-container {
+            max-width: 640px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .demo-logo {
+            font-size: 72px;
+            margin-bottom: 16px;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        h1 {
+            font-size: 42px;
+            font-weight: 800;
+            margin-bottom: 16px;
+            background: linear-gradient(90deg, #10b981, #34d399);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .demo-subtitle {
+            font-size: 18px;
+            color: #94a3b8;
+            margin-bottom: 12px;
+        }
+
+        .demo-description {
+            font-size: 15px;
+            color: #cbd5e1;
+            margin-bottom: 40px;
+            max-width: 520px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .demo-actions {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .demo-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 14px 32px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            min-width: 200px;
+            font-family: inherit;
+        }
+
+        .demo-btn-primary {
+            background-color: #10b981;
+            color: #ffffff;
+            box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);
+        }
+
+        .demo-btn-primary:hover {
+            background-color: #059669;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.5);
+        }
+
+        .demo-btn-secondary {
+            background-color: transparent;
+            color: #ffffff;
+            border: 1.5px solid rgba(255, 255, 255, 0.25);
+        }
+
+        .demo-btn-secondary:hover {
+            background-color: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.5);
+            transform: translateY(-2px);
+        }
+
+        .demo-footer {
+            margin-top: 56px;
+            font-size: 13px;
+            color: #64748b;
+        }
+
+        @media (max-width: 480px) {
+            h1 { font-size: 30px; }
+            .demo-logo { font-size: 56px; }
+            .demo-btn { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-container">
+        <div class="demo-logo">🤖</div>
+        <h1>AI Sales Robot</h1>
+        <div class="demo-subtitle">Интеллектуальный ассистент продаж</div>
+        <p class="demo-description">
+            Автоматизирует диалоги с клиентами, анализирует намерения и помогает закрывать сделки быстрее.
+            Попробуйте робота в Telegram или войдите в CRM-панель для управления.
+        </p>
+
+        <div class="demo-actions">
+            <a href="https://t.me/sasa74bot" target="_blank" rel="noopener" class="demo-btn demo-btn-primary">
+                💬 Открыть робота
+            </a>
+            <a href="/" class="demo-btn demo-btn-secondary">
+                🔐 Войти в CRM
+            </a>
+        </div>
+
+        <div class="demo-footer">
+            © AI Sales Robot · Демонстрационная страница
+        </div>
+    </div>
+</body>
+</html>

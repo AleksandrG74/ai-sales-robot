@@ -7,6 +7,44 @@
     <link rel="stylesheet" href="/static/style.css">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🤖</text></svg>">
     {% block head %}{% endblock %}
+
+    <style>
+        .topbar-link,
+        .topbar-logout {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: inherit;
+            border: 1px solid var(--border-color);
+            background-color: #ffffff;
+            color: var(--text-main);
+        }
+
+        .topbar-link:hover,
+        .topbar-logout:hover {
+            background-color: var(--content-bg);
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .topbar-logout {
+            color: #dc2626;
+            border-color: #fecaca;
+        }
+
+        .topbar-logout:hover {
+            background-color: #fee2e2;
+            border-color: #dc2626;
+            color: #b91c1c;
+        }
+    </style>
 </head>
 <body>
     <div class="app-container">
@@ -54,6 +92,8 @@
                 <div class="topbar-status">
                     <span class="status-indicator">Система: 🟢 Онлайн</span>
                     <span class="status-time" id="current-time"></span>
+                    <a href="/demo" class="topbar-link">🌐 Демо</a>
+                    <button type="button" class="topbar-logout" onclick="logoutDemo()">🚪 Выйти</button>
                 </div>
             </header>
 
@@ -74,5 +114,13 @@
         updateTime();
     </script>
     {% block scripts %}{% endblock %}
+
+    <script>
+        function logoutDemo() {
+            fetch('/', {headers: {Authorization: 'Basic ' + btoa('logout:logout')}})
+                .then(() => { window.location.href = '/demo'; })
+                .catch(() => { window.location.href = '/demo'; });
+        }
+    </script>
 </body>
 </html>
