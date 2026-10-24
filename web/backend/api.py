@@ -564,7 +564,12 @@ async def demo_chat(payload: DemoChatRequest):
 
         from core.llm import LLMClient
         client = LLMClient()
-        reply = await client.chat(system_prompt=system_prompt, user_message=user_message)
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_message}
+        ]
+        response = await client.chat(messages=messages)
+        reply = response.content if hasattr(response, 'content') else str(response)
         if reply is None:
             reply = ""
         reply = str(reply).strip()
