@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Салем — AI Sales Robot</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f3f4f6;
+            color: #1f2937;
+            line-height: 1.7;
+        }
+
+        .landing-hero {
+            background: linear-gradient(135deg, #1a2332 0%, #0f172a 100%);
+            color: #ffffff;
+            padding: 64px 24px 56px;
+            text-align: center;
+        }
+
+        .landing-hero h1 {
+            font-size: 36px;
+            font-weight: 800;
+            max-width: 900px;
+            margin: 0 auto 20px;
+            line-height: 1.3;
+        }
+
+        .landing-hero p {
+            font-size: 17px;
+            color: #cbd5e1;
+            max-width: 800px;
+            margin: 0 auto 10px;
+        }
+
+        .hero-actions {
+            margin-top: 32px;
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn-hero {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 14px 32px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+
+        .btn-hero-primary {
+            background-color: #10b981;
+            color: #ffffff;
+            box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);
+        }
+
+        .btn-hero-primary:hover {
+            background-color: #059669;
+            transform: translateY(-2px);
+        }
+
+        .btn-hero-secondary {
+            background-color: transparent;
+            color: #ffffff;
+            border: 1.5px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .btn-hero-secondary:hover {
+            background-color: rgba(255, 255, 255, 0.08);
+            transform: translateY(-2px);
+        }
+
+        .landing-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 48px 24px;
+        }
+
+        .landing-section {
+            margin-bottom: 48px;
+        }
+
+        .landing-section h2 {
+            font-size: 26px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            color: #1f2937;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .landing-section p {
+            font-size: 16px;
+            color: #374151;
+            margin-bottom: 14px;
+        }
+
+        .comparison-table-wrap {
+            overflow-x: auto;
+            border-radius: 12px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+        }
+
+        table.comparison {
+            width: 100%;
+            border-collapse: collapse;
+            background: #ffffff;
+            font-size: 15px;
+            min-width: 720px;
+        }
+
+        table.comparison th {
+            background-color: #1a2332;
+            color: #ffffff;
+            padding: 16px 18px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 14px;
+            letter-spacing: 0.3px;
+        }
+
+        table.comparison th:first-child {
+            border-top-left-radius: 12px;
+        }
+
+        table.comparison th:last-child {
+            border-top-right-radius: 12px;
+        }
+
+        table.comparison td {
+            padding: 16px 18px;
+            border-bottom: 1px solid #e5e7eb;
+            vertical-align: top;
+        }
+
+        table.comparison tr:last-child td {
+            border-bottom: none;
+        }
+
+        table.comparison tr:nth-child(even) td {
+            background-color: #f9fafb;
+        }
+
+        table.comparison td:first-child {
+            font-weight: 600;
+            color: #1f2937;
+            background-color: #f3f4f6 !important;
+            width: 20%;
+        }
+
+        table.comparison td:nth-child(3) {
+            background-color: #ecfdf5 !important;
+            color: #065f46;
+        }
+
+        .how-list {
+            list-style: none;
+            padding: 0;
+            margin: 0 0 20px;
+        }
+
+        .how-list li {
+            background: #ffffff;
+            border-radius: 10px;
+            padding: 16px 20px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+            font-size: 15px;
+            color: #374151;
+        }
+
+        .how-list li strong {
+            color: #10b981;
+        }
+
+        .cta-block {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: #ffffff;
+            border-radius: 16px;
+            padding: 40px 32px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(16, 185, 129, 0.35);
+        }
+
+        .cta-block h2 {
+            color: #ffffff;
+            font-size: 24px;
+            margin-bottom: 24px;
+            justify-content: center;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn-cta {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 16px 36px;
+            background-color: #ffffff;
+            color: #059669;
+            border-radius: 10px;
+            font-size: 17px;
+            font-weight: 700;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+
+        .btn-cta:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        .landing-footer {
+            text-align: center;
+            padding: 32px 24px;
+            color: #6b7280;
+            font-size: 13px;
+            border-top: 1px solid #e5e7eb;
+            background-color: #ffffff;
+        }
+
+        @media (max-width: 768px) {
+            .landing-hero h1 { font-size: 26px; }
+            .landing-hero p { font-size: 15px; }
+            .landing-container { padding: 32px 16px; }
+            .landing-section h2 { font-size: 21px; }
+            .cta-block { padding: 28px 20px; }
+            .cta-block h2 { font-size: 20px; }
+        }
+    </style>
+</head>
+<body>
+
+    <section class="landing-hero">
+        <h1>🛒 Почему Салем, а не стандартный чат-бот из коробки?</h1>
+        <p>Вы наверняка сталкивались с ситуациями, когда ночью клиент пишет в чат, а ответить некому.</p>
+        <p>Или когда бот на сайте выдает глупые скрипты и раздражает покупателя.</p>
+        <p style="margin-top: 16px; font-weight: 600; color: #ffffff;">
+            Мы создали Салема — цифрового продавца, который решает эти проблемы иначе, чем крупные корпоративные системы.
+        </p>
+        <div class="hero-actions">
+            <a href="/" class="btn-hero btn-hero-secondary">🔐 Войти в CRM</a>
+            <a href="/demo" class="btn-hero btn-hero-primary">👨‍💻 Проверить Салема</a>
+        </div>
+    </section>
+
+    <div class="landing-container">
+
+        <section class="landing-section">
+            <h2>⚖️ Сравнение: Обычные боты vs Салем</h2>
+            <div class="comparison-table-wrap">
+                <table class="comparison">
+                    <thead>
+                        <tr>
+                            <th>Проблема</th>
+                            <th>🤖 Обычные боты</th>
+                            <th>🐈‍⬛ Салем (AI Sales Robot)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Понимание клиента</td>
+                            <td>Отвечают по жёсткому скрипту. Не понимают контекст.</td>
+                            <td>Понимают контекст. Отвечают так, как это сделал бы живой менеджер.</td>
+                        </tr>
+                        <tr>
+                            <td>Обучение</td>
+                            <td>Требуют загрузки базы знаний (RAG) и ручной настройки промптов.</td>
+                            <td>Учатся сами. Анализируют ваши диалоги и запоминают, какие слова ведут к покупке (технология PMI).</td>
+                        </tr>
+                        <tr>
+                            <td>Внедрение</td>
+                            <td>Нужны программисты и недели на интеграцию.</td>
+                            <td>Быстрый запуск. Подключаем к вашему сайту, Telegram, WhatsApp или соцсетям.</td>
+                        </tr>
+                        <tr>
+                            <td>Изменение модели</td>
+                            <td>Требуют переобучения нейросетей и больших бюджетов.</td>
+                            <td>Адаптируются без переобучения LLM. Базовая модель не меняется, меняется только словарь успешных переходов.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="landing-section">
+            <h2>🐈‍⬛ Как это работает на практике?</h2>
+            <p>Вы просто подключаете Салема к вашему чату. Он начинает общаться с клиентами, а после каждого диалога анализирует:</p>
+            <ul class="how-list">
+                <li>💬 <strong>«Какое слово сказал клиент перед тем, как согласиться на покупку?»</strong></li>
+                <li>📉 <strong>«Почему этот диалог провалился?»</strong></li>
+            </ul>
+            <p>На основе этих данных он строит статистику и в следующий раз использует уже те слова, которые реально приносят деньги.</p>
+        </section>
+
+        <section class="landing-section">
+            <h2>⏰ Работает без выходных</h2>
+            <p>Он не устает, не спит и не уходит в отпуск. А вам не нужно быть программистом, чтобы им управлять.</p>
+        </section>
+
+        <section class="cta-block">
+            <h2>👉 Попробуйте задать Салему сложный вопрос</h2>
+            <a href="/demo" class="btn-cta">👨‍💻 Проверить Салема</a>
+        </section>
+
+    </div>
+
+    <footer class="landing-footer">
+        © AI Sales Robot · Салем — цифровой продавец
+    </footer>
+
+</body>
+</html>

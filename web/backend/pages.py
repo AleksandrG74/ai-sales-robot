@@ -378,3 +378,13 @@ async def logs_page(request: Request, service: str = "live-worker"):
             "active_page": "logs",
         },
     )
+
+
+# === Открытая маркетинговая страница (без Basic Auth) ===
+@router.get("/landing", response_class=HTMLResponse)
+async def landing_page(request: Request):
+    """Открытая лендинг-страница для маркетинга."""
+    return templates.TemplateResponse(
+        "landing.html",
+        {"request": request, "active_page": "landing"},
+    )
