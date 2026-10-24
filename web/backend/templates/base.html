@@ -1,39 +1,78 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{% block title %}AI Sales Robot{% endblock %}</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}AI Sales Agent{% endblock %}</title>
     <link rel="stylesheet" href="/static/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🤖</text></svg>">
     {% block head %}{% endblock %}
 </head>
 <body>
-    <header class="site-header">
-        <div class="container">
-            <a class="logo" href="/">🤖 AI Sales Robot</a>
-            <nav class="nav">
-                <a href="/">Дашборд</a>
-                <a href="/dialogues">Диалоги</a>
-                <a href="/live">Live</a>
-                <a href="/strategies">Стратегии</a>
-                <a href="/bridges">Мосты</a>
-                <a href="/words">Токены</a>
-                <a href="/runs">Прогоны</a>
-                <a href="/config">Конфиг</a>
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <span class="logo-icon">🤖</span>
+                <span class="logo-text">AI Sales</span>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="/" class="nav-item {% if request.url.path == '/' %}active{% endif %}">
+                    <span class="nav-icon">🏠</span> Дашборд
+                </a>
+                <a href="/clients" class="nav-item {% if request.url.path == '/clients' %}active{% endif %}">
+                    <span class="nav-icon">👥</span> Клиенты
+                </a>
+                <a href="/live" class="nav-item {% if request.url.path == '/live' %}active{% endif %}">
+                    <span class="nav-icon">💬</span> Live-чаты
+                </a>
+                <a href="/strategies" class="nav-item {% if request.url.path == '/strategies' %}active{% endif %}">
+                    <span class="nav-icon">🧠</span> Стратегии
+                </a>
+                <a href="/bridges" class="nav-item {% if request.url.path == '/bridges' %}active{% endif %}">
+                    <span class="nav-icon">🌉</span> Мосты
+                </a>
+                <a href="/words" class="nav-item {% if request.url.path == '/words' %}active{% endif %}">
+                    <span class="nav-icon">🔤</span> Токены
+                </a>
+                <a href="/runs" class="nav-item {% if request.url.path == '/runs' %}active{% endif %}">
+                    <span class="nav-icon">🏃</span> Прогоны
+                </a>
+                <a href="/config" class="nav-item {% if request.url.path == '/config' %}active{% endif %}">
+                    <span class="nav-icon">⚙️</span> Конфиг
+                </a>
+                <a href="/logs" class="nav-item {% if request.url.path == '/logs' %}active{% endif %}">
+                    <span class="nav-icon">📋</span> Логи
+                </a>
             </nav>
-        </div>
-    </header>
+        </aside>
 
-    <main class="container">
-        {% block content %}{% endblock %}
-    </main>
+        <main class="main-content">
+            <header class="topbar">
+                <div class="topbar-title">
+                    <span class="topbar-icon">🤖</span> AI Sales Agent
+                </div>
+                <div class="topbar-status">
+                    <span class="status-indicator">Система: 🟢 Онлайн</span>
+                    <span class="status-time" id="current-time"></span>
+                </div>
+            </header>
 
-    <footer class="site-footer">
-        <div class="container">
-            <span>AI Sales Robot — Web CRM · <a href="/docs">API docs</a></span>
-        </div>
-    </footer>
+            <div class="content-wrapper">
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+    </div>
 
+    <script>
+        function updateTime() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            const el = document.getElementById('current-time');
+            if (el) el.textContent = timeString;
+        }
+        setInterval(updateTime, 1000);
+        updateTime();
+    </script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

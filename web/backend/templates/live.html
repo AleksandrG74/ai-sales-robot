@@ -1,182 +1,226 @@
 {% extends "base.html" %}
-{% block title %}Live-чаты — AI Sales Robot{% endblock %}
+
+{% block title %}Live-чаты — AI Sales Agent{% endblock %}
 
 {% block content %}
-<div class="page-head">
-    <h1>
-        Live-чаты ({{ chats|length }})
-        {% if unread > 0 %}
-            <span class="badge badge-error" id="unread-badge-top">{{ unread }} непрочитанных</span>
-        {% else %}
-            <span class="badge badge-ok" id="unread-badge-top">непрочитанных нет</span>
-        {% endif %}
-    </h1>
-    <div class="page-actions">
-        <button type="button" id="btn-refresh" class="btn">Обновить</button>
-        <button type="button" id="btn-autorefresh" class="btn" data-state="on">⏸ Остановить авто-обновление</button>
-        <span class="muted" id="autorefresh-status">Авто-обновление: вкл (каждые 10 сек)</span>
-    </div>
+<div class="live-layout">
+    <!-- Левая панель: список чатов -->
+    <aside class="chat-list-panel">
+        <div class="chat-list-header">
+            <h2 class="chat-list-title">💬 Live-чаты</h2>
+            <button class="btn btn-sm" type="button" title="Добавить чат">+ Добавить</button>
+        </div>
+
+        <div class="chat-list">
+            {% for chat in chats %}
+            <a href="/live/{{ chat.chat_id }}" class="chat-item">
+                <div class="chat-avatar">
+                    {{ chat.chat_title[0]|upper if chat.chat_title else '?' }}
+                </div>
+                <div class="chat-item-body">
+                    <div class="chat-item-top">
+                        <span class="chat-item-title">
+                            {{ chat.chat_title if chat.chat_title else chat.chat_id }}
+                        </span>
+                        {% if chat.unread and chat.unread > 0 %}
+                        <span class="chat-badge">{{ chat.unread }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="chat-item-sub">
+                        {{ chat.last_message if chat.last_message is defined and chat.last_message else chat.chat_id }}
+                    </div>
+                </div>
+            </a>
+            {% else %}
+            <div class="chat-empty">
+                <div class="chat-empty-icon">📭</div>
+                <div>Нет активных чатов</div>
+            </div>
+            {% endfor %}
+        </div>
+    </aside>
+
+    <!-- Правая панель: заглушка -->
+    <section class="chat-view-panel">
+        <div class="chat-placeholder">
+            <div class="chat-placeholder-icon">💬</div>
+            <h3>Выберите чат для общения</h3>
+            <p class="text-muted">Слева выберите диалог, чтобы открыть переписку</p>
+        </div>
+    </section>
 </div>
 
-{% if chats %}
-<table class="data wide" id="chats-table">
-    <thead>
-        <tr>
-            <th>chat_title</th>
-            <th>chat_type</th>
-            <th>enabled</th>
-            <th>auto_reply</th>
-            <th>last_message_at</th>
-            <th>непрочитанных</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for c in chats %}
-        <tr>
-            <td>
-                <a href="/live/{{ c.chat_id }}">
-                    <strong>{{ c.chat_title or ("chat " ~ c.chat_id) }}</strong>
-                </a>
-                <div class="muted small"><code>{{ c.chat_id }}</code></div>
-            </td>
-            <td>{{ c.chat_type or "—" }}</td>
-            <td>
-                {% if c.enabled %}
-                    <span class="badge badge-ok">вкл</span>
-                {% else %}
-                    <span class="badge badge-error">выкл</span>
-                {% endif %}
-            </td>
-            <td>
-                {% if c.auto_reply %}
-                    <span class="badge badge-ok">вкл</span>
-                {% else %}
-                    <span class="muted">—</span>
-                {% endif %}
-            </td>
-            <td>{{ c.last_message_at or "—" }}</td>
-            <td>
-                {% set uc = c.unread_count if c.unread_count is defined else 0 %}
-                {% if uc and uc > 0 %}
-                    <span class="badge badge-error unread-badge" data-chat-id="{{ c.chat_id }}">{{ uc }}</span>
-                {% else %}
-                    <span class="muted unread-badge" data-chat-id="{{ c.chat_id }}">—</span>
-                {% endif %}
-            </td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-{% else %}
-<div class="panel empty-state">
-    <p>Нет отслеживаемых чатов.</p>
-    <p>
-        Добавить чат можно через бота
-        <a href="https://t.me/sasa74bot" target="_blank" rel="noopener">@sasa74bot</a>
-        командой <code>/monitor &lt;chat_id&gt;</code>
-        (или через API: <code>POST /api/live/chats</code>).
-    </p>
-</div>
-{% endif %}
-
-<script>
-(function () {
-    const AUTOREFRESH_MS = 10000;
-
-    const unreadTop = document.getElementById("unread-badge-top");
-    const btnRefresh = document.getElementById("btn-refresh");
-    const btnAuto = document.getElementById("btn-autorefresh");
-    const statusEl = document.getElementById("autorefresh-status");
-
-    let autotimer = null;
-    let autorefreshOn = true;
-    let lastUnread = null;
-    let lastChatsSignature = null;
-
-    function currentChatsSignature() {
-        const rows = document.querySelectorAll("#chats-table tbody tr");
-        const ids = [];
-        rows.forEach(tr => {
-            const a = tr.querySelector("a[href^='/live/']");
-            if (a) ids.push(a.getAttribute("href"));
-        });
-        return ids.join("|");
+<style>
+    .live-layout {
+        display: flex;
+        gap: 0;
+        height: calc(100vh - 140px);
+        min-height: 400px;
+        background-color: var(--card-bg);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow-md);
+        overflow: hidden;
     }
 
-    function applyUnread(unread) {
-        if (unreadTop) {
-            if (unread > 0) {
-                unreadTop.className = "badge badge-error";
-                unreadTop.textContent = unread + " непрочитанных";
-            } else {
-                unreadTop.className = "badge badge-ok";
-                unreadTop.textContent = "непрочитанных нет";
-            }
+    .chat-list-panel {
+        width: 30%;
+        min-width: 280px;
+        border-right: 1px solid var(--border-color);
+        display: flex;
+        flex-direction: column;
+        background-color: var(--card-bg);
+    }
+
+    .chat-list-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--border-color);
+        flex-shrink: 0;
+    }
+
+    .chat-list-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--text-main);
+        margin: 0;
+    }
+
+    .chat-list {
+        flex: 1;
+        overflow-y: auto;
+    }
+
+    .chat-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 16px;
+        text-decoration: none;
+        color: inherit;
+        border-bottom: 1px solid var(--border-color);
+        transition: var(--transition);
+    }
+
+    .chat-item:hover {
+        background-color: #f9fafb;
+    }
+
+    .chat-avatar {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #10b981, #059669);
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 18px;
+        flex-shrink: 0;
+    }
+
+    .chat-item-body {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .chat-item-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 2px;
+    }
+
+    .chat-item-title {
+        font-weight: 600;
+        font-size: 14px;
+        color: var(--text-main);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .chat-badge {
+        background-color: var(--accent);
+        color: #ffffff;
+        font-size: 11px;
+        font-weight: 700;
+        padding: 1px 7px;
+        border-radius: 10px;
+        flex-shrink: 0;
+    }
+
+    .chat-item-sub {
+        font-size: 12px;
+        color: var(--text-muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .chat-empty {
+        padding: 40px 16px;
+        text-align: center;
+        color: var(--text-muted);
+        font-size: 14px;
+    }
+
+    .chat-empty-icon {
+        font-size: 32px;
+        margin-bottom: 8px;
+    }
+
+    .chat-view-panel {
+        width: 70%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #fafbfc;
+    }
+
+    .chat-placeholder {
+        text-align: center;
+        padding: 40px;
+    }
+
+    .chat-placeholder-icon {
+        font-size: 64px;
+        margin-bottom: 16px;
+        opacity: 0.6;
+    }
+
+    .chat-placeholder h3 {
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--text-main);
+        margin-bottom: 8px;
+    }
+
+    @media (max-width: 768px) {
+        .live-layout {
+            flex-direction: column;
+            height: auto;
         }
-        // Точная разбивка по чатам — на бэкенде; здесь только общий бейдж.
-    }
 
-    async function pollOnce() {
-        try {
-            const r = await fetch("/api/live/unread_count", {cache: "no-store"});
-            if (!r.ok) return;
-            const data = await r.json();
-            const u = data.unread || 0;
-            if (u !== lastUnread) {
-                lastUnread = u;
-                applyUnread(u);
-                // Если есть непрочитанные — подтянем chats, чтобы обновить per-chat badges
-                if (u > 0) await fetchChatsAndReloadIfChanged(false);
-            }
-        } catch (e) {
-            // тихо
+        .chat-list-panel {
+            width: 100%;
+            min-width: 0;
+            border-right: none;
+            border-bottom: 1px solid var(--border-color);
+            max-height: 50vh;
+        }
+
+        .chat-view-panel {
+            width: 100%;
+            min-height: 240px;
+        }
+
+        .chat-placeholder-icon {
+            font-size: 48px;
         }
     }
-
-    async function fetchChatsAndReloadIfChanged(forceReload) {
-        try {
-            const r = await fetch("/api/live/chats", {cache: "no-store"});
-            if (!r.ok) return;
-            const data = await r.json();
-            const sig = (data.items || []).map(c => c.chat_id).sort().join("|");
-            if (lastChatsSignature === null) {
-                lastChatsSignature = sig;
-                return;
-            }
-            if (forceReload || sig !== lastChatsSignature) {
-                lastChatsSignature = sig;
-                location.reload();
-            }
-        } catch (e) {}
-    }
-
-    function setAutoRefresh(on) {
-        autorefreshOn = on;
-        if (on) {
-            autotimer = setInterval(pollOnce, AUTOREFRESH_MS);
-            btnAuto.textContent = "⏸ Остановить авто-обновление";
-            btnAuto.dataset.state = "on";
-            statusEl.textContent = "Авто-обновление: вкл (каждые " + (AUTOREFRESH_MS / 1000) + " сек)";
-        } else {
-            if (autotimer) clearInterval(autotimer);
-            autotimer = null;
-            btnAuto.textContent = "▶ Включить авто-обновление";
-            btnAuto.dataset.state = "off";
-            statusEl.textContent = "Авто-обновление: выкл";
-        }
-    }
-
-    if (btnRefresh) {
-        btnRefresh.addEventListener("click", () => location.reload());
-    }
-    if (btnAuto) {
-        btnAuto.addEventListener("click", () => setAutoRefresh(!autorefreshOn));
-    }
-
-    // Стартовое значение
-    lastUnread = {{ unread|default(0) }};
-    lastChatsSignature = currentChatsSignature();
-    setAutoRefresh(true);
-})();
-</script>
+</style>
 {% endblock %}

@@ -1,118 +1,109 @@
 {% extends "base.html" %}
-{% block title %}Дашборд — AI Sales Robot{% endblock %}
+
+{% block title %}Дашборд — AI Sales Agent{% endblock %}
 
 {% block content %}
-<h1>Дашборд</h1>
-
-<section class="cards">
-    <div class="card">
-        <div class="card-label">Диалогов обработано</div>
-        <div class="card-value">{{ status.dialogue_count }}</div>
-    </div>
-    <div class="card">
-        <div class="card-label">Стратегий</div>
-        <div class="card-value">{{ status.strategy_count }}</div>
-        <div class="card-sub">активных: {{ status.active_strategies }}</div>
-    </div>
-    <div class="card">
-        <div class="card-label">Версий</div>
-        <div class="card-value">{{ status.version_count }}</div>
-    </div>
-    <div class="card">
-        <div class="card-label">Live-чатов</div>
-        <div class="card-value">{{ chats_total }}</div>
-        <div class="card-sub">
-            непрочитанных: <strong>{{ unread }}</strong>
+<!-- Сетка из 4 карточек -->
+<div class="cards-grid">
+    <div class="stat-card">
+        <div class="stat-icon">💬</div>
+        <div class="stat-info">
+            <div class="stat-label">Диалогов</div>
+            <div class="stat-value">{{ status.dialogue_count if status and status.dialogue_count is defined else 0 }}</div>
         </div>
     </div>
-</section>
 
-<section class="grid-2">
-    <div class="panel">
-        <h2>Метрики качества</h2>
-        <table class="kv">
-            <tr><th>Всего с результатом</th><td>{{ stats.with_result }} / {{ stats.total }}</td></tr>
-            <tr><th>Avg score</th><td>{{ "%.4f"|format(stats.avg_score) }}</td></tr>
-            <tr><th>Avg cosine</th><td>{{ "%.4f"|format(stats.avg_cosine) }}</td></tr>
-        </table>
-
-        {% if stats.roles %}
-        <h3>Роли</h3>
-        <table class="data">
-            <thead><tr><th>Роль</th><th>Кол-во</th></tr></thead>
-            <tbody>
-                {% for role, cnt in stats.roles.items() %}
-                <tr><td>{{ role }}</td><td>{{ cnt }}</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        {% endif %}
-
-        {% if stats.aggression %}
-        <h3>Агрессия</h3>
-        <table class="data">
-            <thead><tr><th>Уровень</th><th>Кол-во</th></tr></thead>
-            <tbody>
-                {% for lvl, cnt in stats.aggression.items() %}
-                <tr><td>{{ lvl }}</td><td>{{ cnt }}</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        {% endif %}
+    <div class="stat-card">
+        <div class="stat-icon">🧠</div>
+        <div class="stat-info">
+            <div class="stat-label">Стратегий</div>
+            <div class="stat-value">{{ status.strategy_count if status and status.strategy_count is defined else 0 }}</div>
+        </div>
     </div>
 
-    <div class="panel">
-        <h2>Последний прогон</h2>
-        {% if status.last_run %}
-        <table class="kv">
-            <tr><th>ID</th><td>{{ status.last_run.id }}</td></tr>
-            <tr><th>Тип</th><td>{{ status.last_run.run_type }}</td></tr>
-            <tr><th>Статус</th><td>
-                <span class="badge badge-{{ status.last_run.status }}">{{ status.last_run.status }}</span>
-            </td></tr>
-            <tr><th>Старт</th><td>{{ status.last_run.started_at or "—" }}</td></tr>
-            <tr><th>Финиш</th><td>{{ status.last_run.finished_at or "—" }}</td></tr>
-            <tr><th>Обработано</th><td>{{ status.last_run.items_processed }}</td></tr>
-            {% if status.last_run.error_text %}
-            <tr><th>Ошибка</th><td class="error">{{ status.last_run.error_text }}</td></tr>
-            {% endif %}
-        </table>
-        {% else %}
-        <p class="muted">Прогонов пока не было.</p>
-        {% endif %}
+    <div class="stat-card">
+        <div class="stat-icon">🔴</div>
+        <div class="stat-info">
+            <div class="stat-label">Live-чатов</div>
+            <div class="stat-value">{{ status.live_count if status and status.live_count is defined else 0 }}</div>
+        </div>
+    </div>
 
-        <h3>Последние 5 прогонов</h3>
-        {% if runs %}
-        <table class="data">
-            <thead><tr><th>ID</th><th>Тип</th><th>Статус</th><th>Обработано</th></tr></thead>
-            <tbody>
-                {% for r in runs %}
+    <div class="stat-card">
+        <div class="stat-icon">📩</div>
+        <div class="stat-info">
+            <div class="stat-label">Непрочитанных</div>
+            <div class="stat-value">{{ unread if unread is defined else 0 }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- Воронка вовлеченности -->
+<div class="card">
+    <div class="card-title">🔻 Воронка вовлеченности</div>
+    {% set roles = stats.roles if stats and stats.roles is defined else {} %}
+    {% set total_roles = roles.values()|sum if roles is mapping else 0 %}
+    {% set role_meta = [
+        ('curious', 'Любопытные', '#10b981'),
+        ('buyer', 'Покупатели', '#3b82f6'),
+        ('skeptic', 'Скептики', '#f59e0b')
+    ] %}
+    {% for key, label, color in role_meta %}
+        {% set count = roles.get(key, 0) if roles is mapping else 0 %}
+        {% set pct = (count / total_roles * 100) if total_roles > 0 else 0 %}
+        <div class="funnel-row">
+            <div class="funnel-label">
+                <span>{{ label }}</span>
+                <span class="funnel-count">{{ count }}</span>
+            </div>
+            <div class="funnel-bar-bg">
+                <div class="funnel-bar" style="width: {{ pct }}%; background-color: {{ color }};"></div>
+            </div>
+        </div>
+    {% endfor %}
+    {% if total_roles == 0 %}
+        <p class="text-muted" style="text-align: center; padding: 8px 0;">Нет данных по ролям</p>
+    {% endif %}
+</div>
+
+<!-- Последние прогоны -->
+<div class="card">
+    <div class="card-title">🕒 Последние прогоны</div>
+    <div class="table-container" style="box-shadow: none;">
+        <table>
+            <thead>
                 <tr>
-                    <td>{{ r.id }}</td>
-                    <td>{{ r.run_type }}</td>
-                    <td><span class="badge badge-{{ r.status }}">{{ r.status }}</span></td>
-                    <td>{{ r.items_processed }}</td>
+                    <th>Время</th>
+                    <th>Название</th>
+                    <th>Статус</th>
+                    <th>Длительность</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for run in (runs[:5] if runs is defined and runs else []) %}
+                <tr>
+                    <td>{{ run.created_at.strftime('%d.%m %H:%M') if run.created_at else '—' }}</td>
+                    <td>{{ run.name if run.name is defined else (run.title if run.title is defined else '—') }}</td>
+                    <td>
+                        {% if run.status == 'success' %}
+                            <span class="badge badge-success">Успех</span>
+                        {% elif run.status == 'failed' %}
+                            <span class="badge badge-danger">Ошибка</span>
+                        {% else %}
+                            <span class="badge badge-warning">{{ run.status if run.status is defined else 'В процессе' }}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ run.duration if run.duration is defined else '—' }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 24px;">
+                        Прогонов пока нет
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
-        {% else %}
-        <p class="muted">Нет данных.</p>
-        {% endif %}
     </div>
-</section>
-
-<section class="panel">
-    <h2>Быстрые ссылки</h2>
-    <ul class="quick-links">
-        <li><a href="/dialogues">Все диалоги →</a></li>
-        <li><a href="/live">Live-чаты ({{ unread }} непрочитанных) →</a></li>
-        <li><a href="/strategies">Стратегии и версии →</a></li>
-        <li><a href="/bridges">Мосты →</a></li>
-        <li><a href="/words">Токены →</a></li>
-        <li><a href="/runs">Прогоны →</a></li>
-        <li><a href="/config">Конфиг (product / goal) →</a></li>
-        <li><a href="/docs">REST API (OpenAPI) →</a></li>
-    </ul>
-</section>
+</div>
 {% endblock %}

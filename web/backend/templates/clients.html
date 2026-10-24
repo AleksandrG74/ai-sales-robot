@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}Клиенты — AI Sales Agent{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-title">👥 Клиенты</div>
+    <div class="table-container" style="box-shadow: none;">
+        <table>
+            <thead>
+                <tr>
+                    <th>Чат</th>
+                    <th>Последнее сообщение</th>
+                    <th>Отправитель</th>
+                    <th>Время</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in clients %}
+                <tr>
+                    <td>
+                        <a href="/live/{{ c.chat_id }}" class="text-success" style="text-decoration: none; font-weight: 600;">
+                            {{ c.chat_id }}
+                        </a>
+                    </td>
+                    <td>{{ c.last_message_text if c.last_message_text else '—' }}</td>
+                    <td>{{ c.author_first_name if c.author_first_name else '—' }}</td>
+                    <td class="text-muted">
+                        {{ c.sent_at.strftime('%d.%m.%Y %H:%M') if c.sent_at else '—' }}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 24px;">
+                        Нет активных клиентов
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

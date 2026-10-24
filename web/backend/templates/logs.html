@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block title %}Логи — AI Sales Agent{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="logs-header">
+        <div class="card-title" style="margin-bottom: 0;">📋 Логи</div>
+        <form method="get" action="/logs" class="logs-form">
+            <label for="service-select" class="text-muted" style="margin-bottom: 0;">Сервис:</label>
+            <select id="service-select" name="service" onchange="this.form.submit()" class="logs-select">
+                {% for svc in services %}
+                <option value="{{ svc }}" {% if svc == current_service %}selected{% endif %}>{{ svc }}</option>
+                {% endfor %}
+            </select>
+            <noscript><button type="submit" class="btn btn-sm">Показать</button></noscript>
+        </form>
+    </div>
+
+    {% if log_text %}
+    <pre class="log-viewer">{{ log_text }}</pre>
+    {% else %}
+    <div class="log-empty">
+        <div class="log-empty-icon">📭</div>
+        <div>Логов нет</div>
+        <div class="text-muted" style="font-size: 12px; margin-top: 4px;">Файл <code>logs/{{ current_service }}.log</code> пуст или не найден</div>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+    .logs-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 16px;
+        flex-wrap: wrap;
+    }
+
+    .logs-form {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .logs-select {
+        padding: 8px 12px;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius);
+        font-size: 14px;
+        font-family: inherit;
+        background-color: #ffffff;
+        cursor: pointer;
+        transition: var(--transition);
+        width: auto;
+    }
+
+    .logs-select:focus {
+        outline: none;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+    }
+
+    .log-viewer {
+        background-color: #0f172a;
+        color: #e2e8f0;
+        font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Monaco, monospace;
+        font-size: 12.5px;
+        line-height: 1.6;
+        padding: 20px;
+        border-radius: var(--radius);
+        overflow-x: auto;
+        overflow-y: auto;
+        max-height: 65vh;
+        white-space: pre-wrap;
+        word-break: break-all;
+        margin: 0;
+        tab-size: 4;
+    }
+
+    .log-empty {
+        text-align: center;
+        padding: 48px 16px;
+        color: var(--text-main);
+        font-size: 14px;
+    }
+
+    .log-empty-icon {
+        font-size: 40px;
+        margin-bottom: 8px;
+    }
+
+    .log-empty code {
+        background-color: var(--content-bg);
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-family: monospace;
+    }
+</style>
+{% endblock %}

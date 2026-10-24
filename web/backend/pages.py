@@ -24,7 +24,7 @@ import logging
 from pathlib import Path
 from typing import Any, Optional
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Request, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
@@ -256,4 +256,124 @@ def page_config(
         saved=saved, error=error,
         product_json=json.dumps(product, ensure_ascii=False, indent=2),
         goal_json=json.dumps(goal, ensure_ascii=False, indent=2),
+    )
+
+@router.get("/clients")
+async def clients_page(request: Request):
+    from core.database import get_session
+    from sqlalchemy import text
+
+    clients = []
+    try:
+        with get_session() as session:
+            result = session.execute(text("""
+                SELECT
+                    lm.chat_id,
+                    lm.message_text AS last_message_text,
+                    lm.author_first_name,
+                    lm.sent_at
+                FROM live_messages lm
+                INNER JOIN (
+                    SELECT chat_id, MAX(sent_at) AS max_sent
+                    FROM live_messages
+                    GROUP BY chat_id
+                ) latest ON lm.chat_id = latest.chat_id AND lm.sent_at = latest.max_sent
+                ORDER BY lm.sent_at DESC
+                LIMIT 100
+            """))
+            for row in result.mappings():
+                clients.append({
+                    "chat_id": row["chat_id"],
+                    "last_message_text": row["last_message_text"],
+                    "author_first_name": row["author_first_name"],
+                    "sent_at": row["sent_at"],
+                })
+    except Exception as e:
+        print(f"[/clients] DB error: {e}")
+        clients = []
+
+    return templates.TemplateResponse(
+        "clients.html",
+        {"request": request, "clients": clients, "active_page": "clients"}
+    )
+
+@router.get("/live")
+async def live_page(request: Request):
+    from core.database import get_session
+    from sqlalchemy import text
+
+    chats = []
+    try:
+        with get_session() as session:
+            result = session.execute(text("""
+                SELECT chat_id, chat_title, enabled
+                FROM monitored_chats
+                WHERE enabled = 1
+                ORDER BY chat_title
+            """))
+            for row in result.mappings():
+                chats.append({
+                    "chat_id": row["chat_id"],
+                    "chat_title": row["chat_title"],
+                    "enabled": row["enabled"],
+                    "unread": 0,
+                    "last_message": None,
+                })
+    except Exception as e:
+        print(f"[/live] DB error: {e}")
+        chats = []
+
+    return templates.TemplateResponse(
+        "live.html",
+        {"request": request, "chats": chats, "active_page": "live"}
+    )
+
+ALLOWED_LOG_SERVICES = [
+    "live-worker",
+    "dialogue-worker",
+    "telegram-worker",
+    "web-backend",
+    "orchestrator",
+]
+
+
+def _resolve_log_path(service: str):
+    """Безопасно возвращает путь к файлу лога или None, если сервис не разрешён."""
+    if service not in ALLOWED_LOG_SERVICES:
+        return None
+    base_dir = Path(__file__).resolve().parent.parent.parent / "logs"
+    candidate = (base_dir / f"{service}.log").resolve()
+    # Защита от path traversal: файл должен лежать строго внутри base_dir
+    try:
+        candidate.relative_to(base_dir.resolve())
+    except ValueError:
+        return None
+    return candidate
+
+
+@router.get("/logs")
+async def logs_page(request: Request, service: str = "live-worker"):
+    from pathlib import Path as _Path  # локальный импорт, если Path не в scope
+
+    current_service = service if service in ALLOWED_LOG_SERVICES else "live-worker"
+    log_text = ""
+    try:
+        log_path = _resolve_log_path(current_service)
+        if log_path and log_path.exists() and log_path.is_file():
+            with open(log_path, "r", encoding="utf-8", errors="replace") as f:
+                lines = f.readlines()
+            log_text = "".join(lines[-100:])
+    except Exception as e:
+        print(f"[/logs] error reading log: {e}")
+        log_text = ""
+
+    return templates.TemplateResponse(
+        "logs.html",
+        {
+            "request": request,
+            "log_text": log_text,
+            "current_service": current_service,
+            "services": ALLOWED_LOG_SERVICES,
+            "active_page": "logs",
+        },
     )
