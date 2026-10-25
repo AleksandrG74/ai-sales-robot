@@ -627,3 +627,24 @@ async def demo_chat(body: DemoChatRequest):
     except Exception as e:
         err_str = f"Ошибка: {e}\n{traceback.format_exc()}"
         return JSONResponse(status_code=500, content={"detail": err_str})
+
+
+TONE_MAP_RU_TO_EN = {
+    "Дружелюбный": "friendly",
+    "Профессиональный": "professional",
+    "Непринуждённый": "casual",
+    "Непринужденный": "casual",
+    "Официальный": "formal",
+}
+
+def normalize_tone(value: str) -> str:
+    """Приводит русское название тона к английскому ключу."""
+    if not value:
+        return "friendly"
+    v = value.strip()
+    if v in TONE_MAP_RU_TO_EN:
+        return TONE_MAP_RU_TO_EN[v]
+    allowed = {"friendly", "professional", "casual", "formal"}
+    if v.lower() in allowed:
+        return v.lower()
+    return "friendly"

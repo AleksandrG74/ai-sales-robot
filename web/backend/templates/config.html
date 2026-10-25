@@ -1,116 +1,106 @@
 {% extends "base.html" %}
+
 {% block title %}Конфиг — AI Sales Robot{% endblock %}
 
 {% block content %}
-<h1>Настройка товара и цели</h1>
+<div class="card" style="max-width: 860px;">
+    <div class="card-title">⚙️ Настройки продукта и цели</div>
 
-{% if saved == "product" %}
-<div class="alert alert-ok">✅ Товар сохранён.</div>
-{% elif saved == "goal" %}
-<div class="alert alert-ok">✅ Цель сохранена.</div>
-{% endif %}
-
-{% if error %}
-<div class="alert alert-error">❌ Ошибка: {{ error }}</div>
-{% endif %}
-
-<section class="grid-2">
-    <div class="panel">
-        <h2>product.json — что продаём</h2>
-
-        <form method="post" action="/api/config/product/form" class="config-form">
-            <label>
-                <span>Название (name)</span>
-                <input type="text" name="name" value="{{ product.get('name', '') }}" required>
-            </label>
-
-            <label>
-                <span>Описание (description)</span>
-                <textarea name="description" rows="4">{{ product.get('description', '') }}</textarea>
-            </label>
-
-            <div class="row-2">
-                <label>
-                    <span>Цена (price)</span>
-                    <input type="number" step="0.01" min="0"
-                           name="price" value="{{ product.get('price', 0) }}">
-                </label>
-                <label>
-                    <span>Валюта (currency)</span>
-                    <input type="text" name="currency" value="{{ product.get('currency', 'RUB') }}">
-                </label>
-            </div>
-
-            <label>
-                <span>URL (url)</span>
-                <input type="text" name="url" value="{{ product.get('url', '') }}">
-            </label>
-
-            <label>
-                <span>Фичи (features) — одна на строку</span>
-                {% set feats = product.get('features', []) %}
-                {% if feats is string %}
-                    {% set feats_text = feats %}
-                {% else %}
-                    {% set feats_text = feats | join("\n") %}
-                {% endif %}
-                <textarea name="features" rows="4">{{ feats_text }}</textarea>
-            </label>
-
-            <div class="form-actions">
-                <button type="submit" class="btn btn-primary">💾 Сохранить product.json</button>
-            </div>
-        </form>
+    {% if saved %}
+    <div class="alert alert-success" style="background:#d1fae5; color:#065f46; padding:12px 16px; border-radius:8px; margin-bottom:16px;">
+        ✅ Настройки успешно сохранены
     </div>
+    {% endif %}
 
-    <div class="panel">
-        <h2>goal.json — цель диалога</h2>
-
-        <form method="post" action="/api/config/goal/form" class="config-form">
-            <label>
-                <span>Цель (goal)</span>
-                <textarea name="goal" rows="3" required>{{ goal.get('goal', '') }}</textarea>
-            </label>
-
-            <label>
-                <span>Критерий успеха (success_criteria)</span>
-                <textarea name="success_criteria" rows="3">{{ goal.get('success_criteria', '') }}</textarea>
-            </label>
-
-            <div class="row-2">
-                <label>
-                    <span>Тон (tone)</span>
-                    <select name="tone">
-                        {% set tone = goal.get('tone', 'friendly') %}
-                        {% for opt in ["friendly", "professional", "casual", "formal"] %}
-                        <option value="{{ opt }}" {% if tone == opt %}selected{% endif %}>{{ opt }}</option>
-                        {% endfor %}
-                    </select>
-                </label>
-                <label>
-                    <span>Макс. ходов (max_dialogue_turns)</span>
-                    <input type="number" min="0" max="100"
-                           name="max_dialogue_turns"
-                           value="{{ goal.get('max_dialogue_turns', 0) }}">
-                </label>
-            </div>
-
-            <div class="form-actions">
-                <button type="submit" class="btn btn-primary">💾 Сохранить goal.json</button>
-            </div>
-        </form>
+    {% if error %}
+    <div class="alert alert-danger" style="background:#fee2e2; color:#991b1b; padding:12px 16px; border-radius:8px; margin-bottom:16px;">
+        ❌ Ошибка: {{ error }}
     </div>
-</section>
+    {% endif %}
 
-<section class="panel">
-    <h2>Сырой JSON (read-only)</h2>
-    <details>
-        <summary>product.json</summary>
-        <pre class="code-block">{{ product_json }}</pre>
-    </details>
-    <details>
-        <summary>goal.json</summary>
-        <pre class="code-block">{{ goal_json }}</pre>
-    </details>
-</section>
+    <form method="post" action="/config" style="display:flex; flex-direction:column; gap:20px;">
+        
+        <!-- Продукт -->
+        <div class="form-group" style="display:flex; flex-direction:column; gap:6px;">
+            <label for="product_name" style="font-weight:600; font-size:14px; color:var(--text-main);">Название продукта</label>
+            <input type="text" id="product_name" name="product_name" 
+                   value="{{ product.get('name', '') }}" 
+                   placeholder="Например: AI Sales Robot"
+                   style="width:100%; padding:10px 12px; border:1px solid var(--border-color); border-radius:8px; font-size:14px; font-family:inherit;">
+        </div>
+
+        <div class="form-group" style="display:flex; flex-direction:column; gap:6px;">
+            <label for="product_description" style="font-weight:600; font-size:14px; color:var(--text-main);">Описание продукта</label>
+            <textarea id="product_description" name="product_description" rows="3"
+                      placeholder="Краткое описание продукта"
+                      style="width:100%; padding:10px 12px; border:1px solid var(--border-color); border-radius:8px; font-size:14px; font-family:inherit; resize:vertical; min-height:90px;">{{ product.get('description', '') }}</textarea>
+        </div>
+
+        <div class="form-group" style="display:flex; flex-direction:column; gap:6px;">
+            <label for="product_url" style="font-weight:600; font-size:14px; color:var(--text-main);">Ссылка на продукт (URL)</label>
+            <input type="url" id="product_url" name="product_url" 
+                   value="{{ product.get('url', '') }}" 
+                   placeholder="https://example.com/product"
+                   style="width:100%; padding:10px 12px; border:1px solid var(--border-color); border-radius:8px; font-size:14px; font-family:inherit;">
+            <small style="color:var(--text-muted); font-size:12px;">Эта ссылка будет подставляться в демо-чате при предложении покупки.</small>
+        </div>
+
+        <div class="form-group" style="display:flex; flex-direction:column; gap:6px;">
+            <label for="product_price" style="font-weight:600; font-size:14px; color:var(--text-main);">Цена</label>
+            <input type="text" id="product_price" name="product_price" 
+                   value="{{ product.get('price', '') }}" 
+                   placeholder="Например: 2990 руб."
+                   style="width:100%; padding:10px 12px; border:1px solid var(--border-color); border-radius:8px; font-size:14px; font-family:inherit;">
+        </div>
+
+        <hr style="border:none; border-top:1px solid var(--border-color); margin:8px 0;">
+
+        <!-- Цель -->
+        <div class="form-group" style="display:flex; flex-direction:column; gap:6px;">
+            <label for="goal_text" style="font-weight:600; font-size:14px; color:var(--text-main);">Цель диалога</label>
+            <textarea id="goal_text" name="goal_text" rows="2"
+                      placeholder="Например: довести клиента до оформления заказа"
+                      style="width:100%; padding:10px 12px; border:1px solid var(--border-color); border-radius:8px; font-size:14px; font-family:inherit; resize:vertical; min-height:70px;">{{ goal.get('goal', '') }}</textarea>
+        </div>
+
+        <div class="form-group" style="display:flex; flex-direction:column; gap:6px;">
+            <label for="tone" style="font-weight:600; font-size:14px; color:var(--text-main);">Тон общения</label>
+            {% set current_tone = goal.get('tone', 'friendly') %}
+            <select id="tone" name="tone"
+                    style="width:100%; padding:10px 12px; border:1px solid var(--border-color); border-radius:8px; font-size:14px; font-family:inherit; background:#fff;">
+                <option value="friendly" {% if current_tone == 'friendly' %}selected{% endif %}>Дружелюбный</option>
+                <option value="professional" {% if current_tone == 'professional' %}selected{% endif %}>Профессиональный</option>
+                <option value="casual" {% if current_tone == 'casual' %}selected{% endif %}>Непринуждённый</option>
+                <option value="formal" {% if current_tone == 'formal' %}selected{% endif %}>Официальный</option>
+            </select>
+        </div>
+
+        <div style="display:flex; gap:12px; margin-top:8px;">
+            <button type="submit" class="btn">💾 Сохранить</button>
+            <a href="/" class="btn btn-secondary">Отмена</a>
+        </div>
+    </form>
+</div>
+
+<!-- Предпросмотр JSON (для отладки) -->
+<div class="card" style="max-width:860px; margin-top:24px;">
+    <div class="card-title" style="font-size:14px; color:var(--text-muted);">🔍 Текущие значения</div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+        <div>
+            <div style="font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:6px;">product.json</div>
+            <pre style="background:#f9fafb; padding:12px; border-radius:8px; font-size:12px; overflow-x:auto; color:#374151;">{{ product_json or product | tojson(indent=2) }}</pre>
+        </div>
+        <div>
+            <div style="font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:6px;">goal.json</div>
+            <pre style="background:#f9fafb; padding:12px; border-radius:8px; font-size:12px; overflow-x:auto; color:#374151;">{{ goal_json or goal | tojson(indent=2) }}</pre>
+        </div>
+    </div>
+</div>
+
+<style>
+    @media (max-width: 640px) {
+        .card { padding: 16px !important; }
+        div[style*="grid-template-columns:1fr 1fr"] { grid-template-columns: 1fr !important; }
+    }
+</style>
 {% endblock %}
