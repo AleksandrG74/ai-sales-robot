@@ -586,7 +586,7 @@ async def demo_chat(body: DemoChatRequest):
             session.commit()
         
         # 2. Формируем промпт
-        prompt_text = "Ты — опытный менеджер по продажам. Отвечай кратко и по делу."
+        prompt_text = "Ты — Салем, умный ассистент по продажам. Твоя задача — помогать клиентам и продавать товар, который описан ниже. Представляйся Салемом, если тебя спрашивают, кто ты."
         try:
             from workers.dialogue.prompt_builder import load_product, load_goal
             product = load_product() or {}
