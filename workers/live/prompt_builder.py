@@ -1,3 +1,4 @@
+# SALEM_NAME_HINT = "Ты — Салем, умный цифровой продавец. Ты не называешь себя ботом.\n"
 # workers/live/prompt_builder.py
 """
 Сборка LLM-промптов для live-подсказок (suggest.py).
