@@ -432,6 +432,49 @@ def api_config_product_form(
     currency: str = Form("RUB"),
     url: str = Form(""),
     features: str = Form(""),
+    goal_text: str = Form(""),
+    tone: str = Form("friendly"),
+) -> RedirectResponse:
+    """Сохраняет и product.json, и goal.json из одной формы."""
+    try:
+        # 1. Сохраняем product.json
+        product_data = {
+            "name": (name or "").strip(),
+            "description": (description or "").strip(),
+            "price": float(price or 0),
+            "currency": (currency or "RUB").strip() or "RUB",
+            "url": (url or "").strip(),
+            "features": _parse_features(features),
+        }
+        path = _configs_dir() / "product.json"
+        if not _write_json(path, product_data):
+            return RedirectResponse(url="/config?error=Не+удалось+записать+product.json", status_code=303)
+        
+        # 2. Сохраняем goal.json (если передан goal_text)
+        if goal_text:
+            goal_data = {
+                "goal": (goal_text or "").strip(),
+                "success_criteria": "Клиент согласился на следующий шаг",
+                "tone": (tone or "friendly").strip(),
+                "max_dialogue_turns": 10,
+            }
+            goal_path = _configs_dir() / "goal.json"
+            if not _write_json(goal_path, goal_data):
+                return RedirectResponse(url="/config?error=Не+удалось+записать+goal.json", status_code=303)
+        
+        logger.info("product.json и goal.json (form) обновлены.")
+        return RedirectResponse(url="/config?saved=product", status_code=303)
+    except Exception as e:
+        logger.exception("product form save упал: %s", e)
+        return RedirectResponse(url="/config?error=product+save+failed", status_code=303)
+
+def api_config_product_form(
+    name: str = Form(""),
+    description: str = Form(""),
+    price: float = Form(0.0),
+    currency: str = Form("RUB"),
+    url: str = Form(""),
+    features: str = Form(""),
 ) -> RedirectResponse:
     """
     Принимает форму из /config, сохраняет product.json, редиректит на /config?saved=product.
